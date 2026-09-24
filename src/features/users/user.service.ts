@@ -3,11 +3,11 @@ import * as bcrypt from 'bcrypt';
 import type { User } from '@prisma/client';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
-import { UserRepository } from './users.repository.js';
+import { UsersRepository } from './users.repository.js';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UserRepository) {}
+  constructor(private readonly userRepository: UsersRepository) {}
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
     const existingByEmail = await this.userRepository.findByEmail(dto.email);
@@ -36,5 +36,9 @@ export class UserService {
   private toResponse(user: User): UserResponseDto {
     const { password: _password, ...rest } = user;
     return rest;
+  }
+
+  findByLogin(login: string): Promise<User | null> {
+    return this.userRepository.findByLogin(login);
   }
 }
