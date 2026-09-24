@@ -16,4 +16,15 @@ model User {
   description String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime? 
 }
