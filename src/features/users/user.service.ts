@@ -1,4 +1,8 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import type { User } from '@prisma/client';
 import { CreateUserDto } from './dto/create-user.dto.js';
@@ -33,12 +37,20 @@ export class UserService {
     return this.toResponse(user);
   }
 
-  private toResponse(user: User): UserResponseDto {
-    const { password: _password, ...rest } = user;
-    return rest;
+  async findById(id: string): Promise<UserResponseDto> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return this.toResponse(user);
   }
 
   findByLogin(login: string): Promise<User | null> {
     return this.userRepository.findByLogin(login);
+  }
+
+  private toResponse(user: User): UserResponseDto {
+    const { password: _password, ...rest } = user;
+    return rest;
   }
 }

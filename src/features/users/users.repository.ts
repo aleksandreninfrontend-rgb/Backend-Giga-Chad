@@ -18,6 +18,10 @@ export class UsersRepository {
     return this.prisma.user.findUnique({ where: { login } });
   }
 
+  findById(id: string) {
+    return this.prisma.user.findUnique({ where: { id } });
+  }
+
   findAll() {
     return this.prisma.user.findMany();
   }
