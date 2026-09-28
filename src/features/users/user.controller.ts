@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Query, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
 import { AccessTokenGuard } from '../../auth/guards/access-token.guard.js';
@@ -9,6 +9,7 @@ import { Role } from '@prisma/client';
 import { RolesGuard } from '../../auth/guards/roles-guard.js';
 import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
+import { UpdateUserDto } from './dto/update-user-dto.js';
 
 @Controller('users')
 export class UserController {
@@ -27,5 +28,14 @@ export class UserController {
   @UseGuards(AccessTokenGuard)
   getMe(@CurrentUser() user: JwtPayload): Promise<UserResponseDto> {
     return this.userService.findById(user.sub);
+  }
+
+  @Patch('me')
+  @UseGuards(AccessTokenGuard)
+  updateMe(
+    @CurrentUser() user: JwtPayload,
+    @Body() updateUserDto: UpdateUserDto,
+  ): Promise<UserResponseDto> {
+    return this.userService.updateById(user.sub, updateUserDto);
   }
 }

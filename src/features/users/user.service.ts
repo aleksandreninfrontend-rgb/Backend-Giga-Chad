@@ -10,6 +10,7 @@ import { UserResponseDto } from './dto/user-response.dto.js';
 import { UsersRepository } from './users.repository.js';
 import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
+import { UpdateUserDto } from './dto/update-user-dto.js';
 
 @Injectable()
 export class UserService {
@@ -51,16 +52,40 @@ export class UserService {
     return this.userRepository.findByLogin(login);
   }
 
-  private toResponse(user: User): UserResponseDto {
-    const { password: _password, ...rest } = user;
-    return rest;
-  }
-
   async findAll(query: GetUsersQueryDto): Promise<PaginatedUserResponseDto> {
     const { users, total, page, limit } =
       await this.userRepository.findAll(query);
     const totalPages = Math.ceil(total / limit);
     const usersResponse = users.map((user) => this.toResponse(user));
     return { users: usersResponse, meta: { total, page, limit, totalPages } };
+  }
+
+  async updateById(id: string, dto: UpdateUserDto): Promise<UserResponseDto> {
+    const user = await this.userRepository.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (dto.email) {
+      const existingByEmail = await this.userRepository.findByEmail(dto.email);
+      if (existingByEmail && existingByEmail.id !== id) {
+        throw new ConflictException('Email already taken');
+      }
+    }
+
+    if (dto.login) {
+      const existingByLogin = await this.userRepository.findByLogin(dto.login);
+      if (existingByLogin && existingByLogin.id !== id) {
+        throw new ConflictException('Login already taken');
+      }
+    }
+
+    const updatedUser = await this.userRepository.updateById(id, dto);
+    return this.toResponse(updatedUser);
+  }
+
+  private toResponse(user: User): UserResponseDto {
+    const { password: _password, ...rest } = user;
+    return rest;
   }
 }

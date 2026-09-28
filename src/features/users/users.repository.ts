@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
+import { UpdateUserDto } from './dto/update-user-dto.js';
 
 @Injectable()
 export class UsersRepository {
@@ -40,5 +41,9 @@ export class UsersRepository {
       this.prisma.user.count({ where }),
     ]);
     return { users, total, page, limit };
+  }
+
+  updateById(id: string, dto: UpdateUserDto) {
+    return this.prisma.user.update({ where: { id }, data: dto });
   }
 }
