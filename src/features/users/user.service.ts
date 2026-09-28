@@ -8,6 +8,8 @@ import type { User } from '@prisma/client';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
 import { UsersRepository } from './users.repository.js';
+import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
+import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
 
 @Injectable()
 export class UserService {
@@ -54,8 +56,11 @@ export class UserService {
     return rest;
   }
 
-  async findAll(): Promise<UserResponseDto[]> {
-    const users = await this.userRepository.findAll();
-    return users.map((user) => this.toResponse(user));
+  async findAll(query: GetUsersQueryDto): Promise<PaginatedUserResponseDto> {
+    const { users, total, page, limit } =
+      await this.userRepository.findAll(query);
+    const totalPages = Math.ceil(total / limit);
+    const usersResponse = users.map((user) => this.toResponse(user));
+    return { users: usersResponse, meta: { total, page, limit, totalPages } };
   }
 }

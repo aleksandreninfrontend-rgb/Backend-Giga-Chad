@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
 import { AccessTokenGuard } from '../../auth/guards/access-token.guard.js';
@@ -7,6 +7,8 @@ import type { JwtPayload } from '../../auth/types/jwt-payload.js';
 import { Roles } from '../../auth/decorators/roles.decorator.js';
 import { Role } from '@prisma/client';
 import { RolesGuard } from '../../auth/guards/roles-guard.js';
+import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
+import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
 
 @Controller('users')
 export class UserController {
@@ -15,8 +17,10 @@ export class UserController {
   @Get('all')
   @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.ADMIN)
-  getAllUsers(): Promise<UserResponseDto[]> {
-    return this.userService.findAll();
+  getAllUsers(
+    @Query() query: GetUsersQueryDto,
+  ): Promise<PaginatedUserResponseDto> {
+    return this.userService.findAll(query);
   }
 
   @Get('me')
