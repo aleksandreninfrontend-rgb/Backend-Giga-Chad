@@ -3,6 +3,7 @@ import { AuthService } from './auth.service.js';
 import { signInDto } from './dto/signin-dto.js';
 import { CreateUserDto } from '../features/users/dto/create-user.dto.js';
 import { AuthResponseDto } from './dto/auth-response-dto.js';
+import { RefreshTokenDto } from './dto/refresh-token-dto.js';
 
 @Controller('auth')
 export class AuthController {
@@ -14,7 +15,12 @@ export class AuthController {
   }
 
   @Post('login')
-  signIn(@Body() signInDto: signInDto) {
+  signIn(@Body() signInDto: signInDto): Promise<AuthResponseDto> {
     return this.authService.signIn(signInDto.login, signInDto.password);
+  }
+
+  @Post('refresh')
+  refresh(@Body() refreshTokenDto: RefreshTokenDto): Promise<AuthResponseDto> {
+    return this.authService.refresh(refreshTokenDto.refresh_token);
   }
 }

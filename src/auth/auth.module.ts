@@ -4,8 +4,14 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { UsersModule } from '../features/users/users.module.js';
-import { ACCESS_JWT, REFRESH_JWT } from './constants.js';
+import {
+  ACCESS_JWT,
+  ACCESS_TOKEN_EXPIRATION_TIME,
+  REFRESH_JWT,
+  REFRESH_TOKEN_EXPIRATION_TIME,
+} from './constants.js';
 import { AccessTokenGuard } from './guards/access-token.guard.js';
+import { RefreshTokenRepository } from './refresh-token.repository.js';
 
 @Module({
   controllers: [AuthController],
@@ -13,13 +19,14 @@ import { AccessTokenGuard } from './guards/access-token.guard.js';
   providers: [
     AuthService,
     AccessTokenGuard,
+    RefreshTokenRepository,
     {
       provide: ACCESS_JWT,
       inject: [ConfigService],
       useFactory: (configService: ConfigService) =>
         new JwtService({
           secret: configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-          signOptions: { expiresIn: '60s' },
+          signOptions: { expiresIn: ACCESS_TOKEN_EXPIRATION_TIME },
         }),
     },
     {
@@ -28,7 +35,7 @@ import { AccessTokenGuard } from './guards/access-token.guard.js';
       useFactory: (configService: ConfigService) =>
         new JwtService({
           secret: configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-          signOptions: { expiresIn: '604800s' },
+          signOptions: { expiresIn: REFRESH_TOKEN_EXPIRATION_TIME },
         }),
     },
   ],
