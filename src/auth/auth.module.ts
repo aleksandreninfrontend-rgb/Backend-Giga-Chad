@@ -12,6 +12,7 @@ import {
 } from './constants.js';
 import { AccessTokenGuard } from './guards/access-token.guard.js';
 import { RefreshTokenRepository } from './refresh-token.repository.js';
+import { RolesGuard } from './guards/roles-guard.js';
 
 @Module({
   controllers: [AuthController],
@@ -19,6 +20,7 @@ import { RefreshTokenRepository } from './refresh-token.repository.js';
   providers: [
     AuthService,
     AccessTokenGuard,
+    RolesGuard,
     RefreshTokenRepository,
     {
       provide: ACCESS_JWT,
@@ -39,6 +41,6 @@ import { RefreshTokenRepository } from './refresh-token.repository.js';
         }),
     },
   ],
-  exports: [AuthService, AccessTokenGuard, ACCESS_JWT],
+  exports: [AuthService, AccessTokenGuard, ACCESS_JWT, RolesGuard],
 })
 export class AuthModule {}

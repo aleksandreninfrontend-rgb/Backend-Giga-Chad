@@ -53,4 +53,9 @@ export class UserService {
     const { password: _password, ...rest } = user;
     return rest;
   }
+
+  async findAll(): Promise<UserResponseDto[]> {
+    const users = await this.userRepository.findAll();
+    return users.map((user) => this.toResponse(user));
+  }
 }

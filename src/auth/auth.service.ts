@@ -7,6 +7,7 @@ import { AuthResponseDto } from './dto/auth-response-dto.js';
 import * as bcrypt from 'bcrypt';
 import { ACCESS_JWT, REFRESH_JWT, REFRESH_TOKEN_TTL_MS } from './constants.js';
 import { RefreshTokenRepository } from './refresh-token.repository.js';
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -43,8 +44,8 @@ export class AuthService {
       ...tokens,
     };
   }
-  private async issueTokens(user: { id: string; login: string }) {
-    const payload = { sub: user.id, login: user.login };
+  private async issueTokens(user: { id: string; login: string; role: Role }) {
+    const payload = { sub: user.id, login: user.login, role: user.role };
     const [access_token, refresh_token] = await Promise.all([
       this.accessJwtService.signAsync(payload),
       this.refreshJwtService.signAsync({ sub: user.id }),
