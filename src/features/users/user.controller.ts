@@ -10,6 +10,16 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { UserService } from './user.service.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
 import { AccessTokenGuard } from '../../auth/guards/access-token.guard.js';
@@ -22,6 +32,8 @@ import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
 
+@ApiTags('users')
+@ApiBearerAuth()
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
@@ -29,6 +41,10 @@ export class UserController {
   @Get('all')
   @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'List users (admin). Supports pagination and login filter.' })
+  @ApiOkResponse({ type: PaginatedUserResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse({ description: 'Requires ADMIN role' })
   getAllUsers(
     @Query() query: GetUsersQueryDto,
   ): Promise<PaginatedUserResponseDto> {
@@ -37,12 +53,19 @@ export class UserController {
 
   @Get('me')
   @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse({ description: 'User not found or soft-deleted' })
   getMe(@CurrentUser() user: JwtPayload): Promise<UserResponseDto> {
     return this.userService.findById(user.sub);
   }
 
   @Patch('me')
   @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: 'Update current user profile' })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiUnauthorizedResponse()
   updateMe(
     @CurrentUser() user: JwtPayload,
     @Body() updateUserDto: UpdateUserDto,
@@ -53,6 +76,10 @@ export class UserController {
   @Patch(':id')
   @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Update any user by id (admin)' })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse({ description: 'Requires ADMIN role' })
   updateById(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.userService.updateById(id, dto);
   }
@@ -60,6 +87,9 @@ export class UserController {
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(AccessTokenGuard)
+  @ApiOperation({ summary: 'Soft-delete current user' })
+  @ApiNoContentResponse()
+  @ApiUnauthorizedResponse()
   softDeleteMe(@CurrentUser() user: JwtPayload): Promise<void> {
     return this.userService.softDeleteById(user.sub);
   }
@@ -68,6 +98,12 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary: 'Soft-delete any user by id (admin). Admins cannot delete themselves.',
+  })
+  @ApiNoContentResponse()
+  @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse()
   softDeleteById(@CurrentUser() admin: JwtPayload, @Param('id') id: string) {
     return this.userService.softDeleteById(id, { actorId: admin.sub });
   }
