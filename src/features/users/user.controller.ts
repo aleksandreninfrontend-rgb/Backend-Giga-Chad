@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Patch, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { UserService } from './user.service.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
 import { AccessTokenGuard } from '../../auth/guards/access-token.guard.js';
@@ -37,5 +48,27 @@ export class UserController {
     @Body() updateUserDto: UpdateUserDto,
   ): Promise<UserResponseDto> {
     return this.userService.updateById(user.sub, updateUserDto);
+  }
+
+  @Patch(':id')
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  updateById(@Param('id') id: string, @Body() dto: UpdateUserDto) {
+    return this.userService.updateById(id, dto);
+  }
+
+  @Delete('me')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AccessTokenGuard)
+  softDeleteMe(@CurrentUser() user: JwtPayload): Promise<void> {
+    return this.userService.softDeleteById(user.sub);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AccessTokenGuard, RolesGuard)
+  @Roles(Role.ADMIN)
+  softDeleteById(@CurrentUser() admin: JwtPayload, @Param('id') id: string) {
+    return this.userService.softDeleteById(id, { actorId: admin.sub });
   }
 }

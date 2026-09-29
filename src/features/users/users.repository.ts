@@ -17,11 +17,15 @@ export class UsersRepository {
   }
 
   findByLogin(login: string) {
-    return this.prisma.user.findUnique({ where: { login } });
+    return this.prisma.user.findFirst({ where: { login, deletedAt: null } });
+  }
+
+  findByLoginAny(login: string) {
+    return this.prisma.user.findFirst({ where: { login } });
   }
 
   findById(id: string) {
-    return this.prisma.user.findUnique({ where: { id } });
+    return this.prisma.user.findFirst({ where: { id, deletedAt: null } });
   }
 
   async findAll(query: GetUsersQueryDto) {
@@ -36,14 +40,21 @@ export class UsersRepository {
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
-        where,
+        where: { ...where, deletedAt: null },
       }),
-      this.prisma.user.count({ where }),
+      this.prisma.user.count({ where: { ...where, deletedAt: null } }),
     ]);
     return { users, total, page, limit };
   }
 
   updateById(id: string, dto: UpdateUserDto) {
     return this.prisma.user.update({ where: { id }, data: dto });
+  }
+
+  softDeleteById(id: string) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   }
 }

@@ -41,6 +41,12 @@ import { RolesGuard } from './guards/roles-guard.js';
         }),
     },
   ],
-  exports: [AuthService, AccessTokenGuard, ACCESS_JWT, RolesGuard],
+  exports: [
+    AuthService,
+    RefreshTokenRepository,
+    AccessTokenGuard,
+    ACCESS_JWT,
+    RolesGuard,
+  ],
 })
 export class AuthModule {}

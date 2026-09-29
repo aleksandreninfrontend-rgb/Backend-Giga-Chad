@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -11,10 +12,14 @@ import { UsersRepository } from './users.repository.js';
 import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
+import { RefreshTokenRepository } from '../../auth/refresh-token.repository.js';
 
 @Injectable()
 export class UserService {
-  constructor(private readonly userRepository: UsersRepository) {}
+  constructor(
+    private readonly userRepository: UsersRepository,
+    private readonly refreshTokenRepository: RefreshTokenRepository,
+  ) {}
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
     const existingByEmail = await this.userRepository.findByEmail(dto.email);
@@ -22,7 +27,7 @@ export class UserService {
       throw new ConflictException('Email already taken');
     }
 
-    const existingByLogin = await this.userRepository.findByLogin(dto.login);
+    const existingByLogin = await this.userRepository.findByLoginAny(dto.login);
     if (existingByLogin) {
       throw new ConflictException('Login already taken');
     }
@@ -74,7 +79,9 @@ export class UserService {
     }
 
     if (dto.login) {
-      const existingByLogin = await this.userRepository.findByLogin(dto.login);
+      const existingByLogin = await this.userRepository.findByLoginAny(
+        dto.login,
+      );
       if (existingByLogin && existingByLogin.id !== id) {
         throw new ConflictException('Login already taken');
       }
@@ -82,6 +89,19 @@ export class UserService {
 
     const updatedUser = await this.userRepository.updateById(id, dto);
     return this.toResponse(updatedUser);
+  }
+
+  async softDeleteById(
+    id: string,
+    options?: { actorId: string },
+  ): Promise<void> {
+    const user = await this.userRepository.findById(id);
+    if (!user) throw new NotFoundException('User not found');
+    if (options?.actorId === id) {
+      throw new ForbiddenException('Admins cannot delete themselves');
+    }
+    await this.refreshTokenRepository.revokeByUserId(id);
+    await this.userRepository.softDeleteById(id);
   }
 
   private toResponse(user: User): UserResponseDto {
