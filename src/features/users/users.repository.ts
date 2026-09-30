@@ -29,22 +29,20 @@ export class UsersRepository {
   }
 
   async findAll(query: GetUsersQueryDto) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 10;
-    const skip = (page - 1) * limit;
+    const skip = (query.page - 1) * query.limit;
     const where = query.login
       ? { login: { contains: query.login, mode: Prisma.QueryMode.insensitive } }
       : {};
     const [users, total] = await Promise.all([
       this.prisma.user.findMany({
         skip,
-        take: limit,
+        take: query.limit,
         orderBy: { createdAt: 'desc' },
         where: { ...where, deletedAt: null },
       }),
       this.prisma.user.count({ where: { ...where, deletedAt: null } }),
     ]);
-    return { users, total, page, limit };
+    return { users, total, page: query.page, limit: query.limit };
   }
 
   updateById(id: string, dto: UpdateUserDto) {

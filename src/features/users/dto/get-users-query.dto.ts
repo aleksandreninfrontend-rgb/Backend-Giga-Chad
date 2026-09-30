@@ -8,7 +8,7 @@ export class GetUsersQueryDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page?: number = 1;
+  page: number = 1;
 
   @ApiPropertyOptional({ example: 10, default: 10, minimum: 1, maximum: 100 })
   @IsOptional()
@@ -16,7 +16,7 @@ export class GetUsersQueryDto {
   @IsInt()
   @Min(1)
   @Max(100)
-  limit?: number = 10;
+  limit: number = 10;
 
   @ApiPropertyOptional({
     example: 'refresh',
