@@ -6,7 +6,7 @@ import { JwtService } from '@nestjs/jwt';
 import { AuthResponseDto } from './dto/auth-response-dto.js';
 import * as bcrypt from 'bcrypt';
 import { ACCESS_JWT, REFRESH_JWT, REFRESH_TOKEN_TTL_MS } from './constants.js';
-import { RefreshTokenRepository } from './refresh-token.repository.js';
+import { SessionsService } from './sessions.service.js';
 import { Role } from '@prisma/client';
 
 @Injectable()
@@ -15,7 +15,7 @@ export class AuthService {
     private readonly usersService: UserService,
     @Inject(ACCESS_JWT) private readonly accessJwtService: JwtService,
     @Inject(REFRESH_JWT) private readonly refreshJwtService: JwtService,
-    private readonly refreshTokenRepository: RefreshTokenRepository,
+    private readonly sessionsService: SessionsService,
   ) {}
 
   async signIn(login: string, pass: string): Promise<AuthResponseDto> {
@@ -49,7 +49,7 @@ export class AuthService {
       this.refreshJwtService.signAsync({ sub: user.id }),
     ]);
     const refresh_token_hash = this.hashToken(refresh_token);
-    await this.refreshTokenRepository.create({
+    await this.sessionsService.create({
       tokenHash: refresh_token_hash,
       userId: user.id,
       expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
@@ -66,7 +66,7 @@ export class AuthService {
 
     const oldRefreshTokenHash = this.hashToken(refresh_token);
     const existingRefreshToken =
-      await this.refreshTokenRepository.findValidByHash(oldRefreshTokenHash);
+      await this.sessionsService.findValidByHash(oldRefreshTokenHash);
     if (!existingRefreshToken) {
       throw new UnauthorizedException();
     }
@@ -84,7 +84,7 @@ export class AuthService {
     ]);
     const newRefreshTokenHash = this.hashToken(new_refresh_token);
     try {
-      await this.refreshTokenRepository.rotate(oldRefreshTokenHash, {
+      await this.sessionsService.rotate(oldRefreshTokenHash, {
         tokenHash: newRefreshTokenHash,
         userId: user.id,
         expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),

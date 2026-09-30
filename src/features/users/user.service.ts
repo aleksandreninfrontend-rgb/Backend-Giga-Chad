@@ -12,14 +12,14 @@ import { UsersRepository } from './users.repository.js';
 import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
-import { RefreshTokenRepository } from '../../auth/refresh-token.repository.js';
+import { SessionsService } from '../../auth/sessions.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly userRepository: UsersRepository,
-    private readonly refreshTokenRepository: RefreshTokenRepository,
+    private readonly sessionsService: SessionsService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -107,7 +107,7 @@ export class UserService {
       throw new ForbiddenException('Admins cannot delete themselves');
     }
     await this.prisma.$transaction(async (tx) => {
-      await this.refreshTokenRepository.revokeByUserId(id, tx);
+      await this.sessionsService.revokeAll(id, tx);
       await this.userRepository.softDeleteById(id, tx);
     });
   }

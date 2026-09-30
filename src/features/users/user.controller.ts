@@ -37,7 +37,9 @@ export class UserController {
 
   @Get('all')
   @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'List users (admin). Supports pagination and login filter.' })
+  @ApiOperation({
+    summary: 'List users (admin). Supports pagination and login filter.',
+  })
   @ApiOkResponse({ type: PaginatedUserResponseDto })
   @ApiUnauthorizedResponse()
   @ApiForbiddenResponse({ description: 'Requires ADMIN role' })
@@ -90,7 +92,8 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   @Roles(Role.ADMIN)
   @ApiOperation({
-    summary: 'Soft-delete any user by id (admin). Admins cannot delete themselves.',
+    summary:
+      'Soft-delete any user by id (admin). Admins cannot delete themselves.',
   })
   @ApiNoContentResponse()
   @ApiUnauthorizedResponse()
