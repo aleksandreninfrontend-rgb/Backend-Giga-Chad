@@ -20,11 +20,10 @@ export class AuthService {
 
   async signIn(login: string, pass: string): Promise<AuthResponseDto> {
     const user = await this.usersService.findByLogin(login);
-    if (!user) {
-      throw new UnauthorizedException();
-    }
-    const ok = await bcrypt.compare(pass, user.password);
-    if (!ok) {
+    const ok = user
+      ? await bcrypt.compare(pass, user.password)
+      : false;
+    if (!user || !ok) {
       throw new UnauthorizedException();
     }
     const tokens = await this.issueTokens(user);
