@@ -8,7 +8,6 @@ import {
   Param,
   Patch,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -22,12 +21,10 @@ import {
 } from '@nestjs/swagger';
 import { UserService } from './user.service.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
-import { AccessTokenGuard } from '../../auth/guards/access-token.guard.js';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator.js';
 import type { JwtPayload } from '../../auth/types/jwt-payload.js';
 import { Roles } from '../../auth/decorators/roles.decorator.js';
 import { Role } from '@prisma/client';
-import { RolesGuard } from '../../auth/guards/roles-guard.js';
 import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
@@ -39,7 +36,6 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Get('all')
-  @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'List users (admin). Supports pagination and login filter.' })
   @ApiOkResponse({ type: PaginatedUserResponseDto })
@@ -52,7 +48,6 @@ export class UserController {
   }
 
   @Get('me')
-  @UseGuards(AccessTokenGuard)
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiOkResponse({ type: UserResponseDto })
   @ApiUnauthorizedResponse()
@@ -62,7 +57,6 @@ export class UserController {
   }
 
   @Patch('me')
-  @UseGuards(AccessTokenGuard)
   @ApiOperation({ summary: 'Update current user profile' })
   @ApiOkResponse({ type: UserResponseDto })
   @ApiUnauthorizedResponse()
@@ -74,7 +68,6 @@ export class UserController {
   }
 
   @Patch(':id')
-  @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @ApiOperation({ summary: 'Update any user by id (admin)' })
   @ApiOkResponse({ type: UserResponseDto })
@@ -86,7 +79,6 @@ export class UserController {
 
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(AccessTokenGuard)
   @ApiOperation({ summary: 'Soft-delete current user' })
   @ApiNoContentResponse()
   @ApiUnauthorizedResponse()
@@ -96,7 +88,6 @@ export class UserController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(AccessTokenGuard, RolesGuard)
   @Roles(Role.ADMIN)
   @ApiOperation({
     summary: 'Soft-delete any user by id (admin). Admins cannot delete themselves.',

@@ -13,12 +13,14 @@ import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
 import { RefreshTokenRepository } from '../../auth/refresh-token.repository.js';
+import { PrismaService } from '../../prisma/prisma.service.js';
 
 @Injectable()
 export class UserService {
   constructor(
     private readonly userRepository: UsersRepository,
     private readonly refreshTokenRepository: RefreshTokenRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
@@ -104,8 +106,10 @@ export class UserService {
     if (options?.actorId === id) {
       throw new ForbiddenException('Admins cannot delete themselves');
     }
-    await this.refreshTokenRepository.revokeByUserId(id);
-    await this.userRepository.softDeleteById(id);
+    await this.prisma.$transaction(async (tx) => {
+      await this.refreshTokenRepository.revokeByUserId(id, tx);
+      await this.userRepository.softDeleteById(id, tx);
+    });
   }
 
   toResponse(user: User): UserResponseDto {

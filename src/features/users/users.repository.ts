@@ -49,8 +49,9 @@ export class UsersRepository {
     return this.prisma.user.update({ where: { id }, data: dto });
   }
 
-  softDeleteById(id: string) {
-    return this.prisma.user.update({
+  softDeleteById(id: string, tx?: Prisma.TransactionClient) {
+    const client = tx ?? this.prisma;
+    return client.user.update({
       where: { id },
       data: { deletedAt: new Date() },
     });

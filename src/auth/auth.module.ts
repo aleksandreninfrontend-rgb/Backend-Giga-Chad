@@ -1,4 +1,4 @@
-import { Module, forwardRef } from '@nestjs/common';
+import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AuthController } from './auth.controller.js';
@@ -11,17 +11,16 @@ import {
   REFRESH_TOKEN_EXPIRATION_TIME,
 } from './constants.js';
 import { AccessTokenGuard } from './guards/access-token.guard.js';
-import { RefreshTokenRepository } from './refresh-token.repository.js';
 import { RolesGuard } from './guards/roles-guard.js';
+import { TokenModule } from './token.module.js';
 
 @Module({
   controllers: [AuthController],
-  imports: [forwardRef(() => UsersModule)],
+  imports: [UsersModule, TokenModule],
   providers: [
     AuthService,
     AccessTokenGuard,
     RolesGuard,
-    RefreshTokenRepository,
     {
       provide: ACCESS_JWT,
       inject: [ConfigService],
@@ -43,7 +42,6 @@ import { RolesGuard } from './guards/roles-guard.js';
   ],
   exports: [
     AuthService,
-    RefreshTokenRepository,
     AccessTokenGuard,
     ACCESS_JWT,
     RolesGuard,
