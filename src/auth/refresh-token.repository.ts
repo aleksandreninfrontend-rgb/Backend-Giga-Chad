@@ -20,10 +20,24 @@ export class RefreshTokenRepository {
     });
   }
 
-  revoke(id: string) {
-    return this.prisma.refreshToken.update({
-      where: { id: id },
-      data: { revokedAt: new Date() },
+  async rotate(
+    oldTokenHash: string,
+    data: Prisma.RefreshTokenUncheckedCreateInput,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const result = await tx.refreshToken.updateMany({
+        where: {
+          tokenHash: oldTokenHash,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        data: { revokedAt: new Date() },
+      });
+      if (result.count !== 1) {
+        throw new Error('Failed to revoke old token');
+      }
+      await tx.refreshToken.create({ data });
+      return result;
     });
   }
 

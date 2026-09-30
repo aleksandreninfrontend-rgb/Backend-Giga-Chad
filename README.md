@@ -10,7 +10,7 @@ NestJS + Prisma + PostgreSQL homework API: auth (JWT access/refresh), users (CRU
 
 ## Environment
 
-`.env` is **not** committed to git (as usual). For local / teacher review, create a `.env` in the project root with:
+`.env` is **not** committed to git (as usual). For local review, create a `.env` in the project root with:
 
 ```env
 DATABASE_URL="postgresql://backend_giga_chad:backend_giga_chad@localhost:5432/backend_giga_chad?schema=public"

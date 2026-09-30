@@ -57,6 +57,10 @@ export class UserService {
     return this.userRepository.findByLogin(login);
   }
 
+  findActiveById(id: string): Promise<User | null> {
+    return this.userRepository.findById(id);
+  }
+
   async findAll(query: GetUsersQueryDto): Promise<PaginatedUserResponseDto> {
     const { users, total, page, limit } =
       await this.userRepository.findAll(query);
@@ -104,7 +108,7 @@ export class UserService {
     await this.userRepository.softDeleteById(id);
   }
 
-  private toResponse(user: User): UserResponseDto {
+  toResponse(user: User): UserResponseDto {
     const { password: _password, ...rest } = user;
     return rest;
   }

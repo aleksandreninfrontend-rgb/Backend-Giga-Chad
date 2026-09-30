@@ -27,10 +27,9 @@ export class AuthService {
     if (!ok) {
       throw new UnauthorizedException();
     }
-    const { password, ...safeUser } = user;
     const tokens = await this.issueTokens(user);
     return {
-      user: safeUser,
+      user: this.usersService.toResponse(user),
       ...tokens,
     };
   }
@@ -65,18 +64,39 @@ export class AuthService {
     } catch {
       throw new UnauthorizedException();
     }
-    const refresh_token_hash = this.hashToken(refresh_token);
-    const refresh_token_entity =
-      await this.refreshTokenRepository.findValidByHash(refresh_token_hash);
-    if (!refresh_token_entity) {
+
+    const oldRefreshTokenHash = this.hashToken(refresh_token);
+    const existingRefreshToken =
+      await this.refreshTokenRepository.findValidByHash(oldRefreshTokenHash);
+    if (!existingRefreshToken) {
       throw new UnauthorizedException();
     }
-    await this.refreshTokenRepository.revoke(refresh_token_entity.id);
-    const user = await this.usersService.findById(refresh_token_entity.userId);
-    const tokens = await this.issueTokens(user);
+    const user = await this.usersService.findActiveById(
+      existingRefreshToken.userId,
+    );
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+
+    const payload = { sub: user.id, login: user.login, role: user.role };
+    const [access_token, new_refresh_token] = await Promise.all([
+      this.accessJwtService.signAsync(payload),
+      this.refreshJwtService.signAsync({ sub: user.id }),
+    ]);
+    const newRefreshTokenHash = this.hashToken(new_refresh_token);
+    try {
+      await this.refreshTokenRepository.rotate(oldRefreshTokenHash, {
+        tokenHash: newRefreshTokenHash,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+      });
+    } catch {
+      throw new UnauthorizedException();
+    }
     return {
-      user: user,
-      ...tokens,
+      user: this.usersService.toResponse(user),
+      access_token,
+      refresh_token: new_refresh_token,
     };
   }
 
