@@ -25,7 +25,14 @@
     "prisma:studio": "prisma studio",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
-    "db:logs": "docker compose logs -f postgres"
+    "db:logs": "docker compose logs -f postgres",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "oxlint --type-aware --fix",
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -51,6 +58,8 @@
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",
     "@vitest/coverage-v8": "^4.1.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
     "oxlint": "^1.58.0",
     "oxlint-tsgolint": "^7.0.2001",
     "prettier": "^3.4.2",
