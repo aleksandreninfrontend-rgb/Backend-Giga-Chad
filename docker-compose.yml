@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: backend-giga-chad-postgres
+    restart: unless-stopped
+    ports:
+      - '5432:5432'
+    environment:
+      POSTGRES_USER: backend_giga_chad
+      POSTGRES_PASSWORD: backend_giga_chad
+      POSTGRES_DB: backend_giga_chad
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready -U backend_giga_chad -d backend_giga_chad',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
