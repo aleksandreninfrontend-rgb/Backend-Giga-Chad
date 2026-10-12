@@ -11,11 +11,12 @@ import { S3Service } from './s3.service.js';
       provide: S3Lib,
       useFactory: async () => {
         return new AWS.S3({
-          endpoint: 'http://127.0.0.1:9000',
-          region: 'ru-central1',
+          endpoint: 'http://127.0.0.1:19000',
+          region: 'us-east-1',
+          forcePathStyle: true,
           credentials: {
-            accessKeyId: 'lD4cKc8LVdrZOSXHHOsl',
-            secretAccessKey: 'iZvYrFsYDOIeEt9GO3WZnmuiX74ZF37hm9FZQWX7',
+            accessKeyId: 'minioadmin',
+            secretAccessKey: 'minioadmin',
           },
         });
       },

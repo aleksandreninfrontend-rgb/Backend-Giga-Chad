@@ -1,0 +1,79 @@
+import {
+  Controller,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
+  ApiCreatedResponse,
+  ApiForbiddenResponse,
+  ApiNoContentResponse,
+  ApiNotFoundResponse,
+  ApiOperation,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
+import { memoryStorage } from 'multer';
+import { AvatarService } from './avatar.service.js';
+import { CurrentUser } from '../../auth/decorators/current-user.decorator.js';
+import type { JwtPayload } from '../../auth/types/jwt-payload.js';
+import type { IUploadedMulterFile } from '../../providers/files/s3/interfaces/upload-file.interface.js';
+import { AvatarResponseDto } from './dto/avatar-response.dto.js';
+
+const MAX_AVATAR_SIZE_BYTES = 10 * 1024 * 1024;
+
+@ApiTags('users')
+@ApiBearerAuth()
+@Controller('users')
+export class AvatarController {
+  constructor(private readonly avatarService: AvatarService) {}
+
+  @Post('me/avatars')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: MAX_AVATAR_SIZE_BYTES },
+    }),
+  )
+  @ApiOperation({ summary: 'Upload an avatar for the current user (max 5)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @ApiCreatedResponse({ type: AvatarResponseDto })
+  @ApiUnauthorizedResponse()
+  upload(
+    @CurrentUser() user: JwtPayload,
+    @UploadedFile() file: IUploadedMulterFile,
+  ): Promise<AvatarResponseDto> {
+    return this.avatarService.upload(user.sub, file);
+  }
+
+  @Delete('me/avatars/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Soft-delete an avatar of the current user' })
+  @ApiNoContentResponse()
+  @ApiUnauthorizedResponse()
+  @ApiNotFoundResponse()
+  @ApiForbiddenResponse()
+  softDelete(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ): Promise<void> {
+    return this.avatarService.softDelete(user.sub, id);
+  }
+}

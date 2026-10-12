@@ -4,8 +4,8 @@ services:
   rustfs:
     image: rustfs/rustfs:latest
     ports:
-      - '9000:9000'
-      - '9001:9001'
+      - '19000:9000'
+      - '19001:9001'
     volumes:
       - rustfs_storage:/data
     environment:
