@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -14,6 +15,11 @@ import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
 import { SessionsService } from '../../auth/sessions.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { PaginatedActiveUsersResponseDto } from './dto/active-users-response.dto.js';
+import { GetActiveUsersQueryDto } from './dto/get-active-users-query.dto.js';
+import { RedisService } from '../../providers/cache/redis.service.js';
+
+const CACHE_TTL_SECONDS = Number(process.env.CACHE_TTL_SECONDS ?? '30');
 
 @Injectable()
 export class UserService {
@@ -21,6 +27,7 @@ export class UserService {
     private readonly userRepository: UsersRepository,
     private readonly sessionsService: SessionsService,
     private readonly prisma: PrismaService,
+    private readonly redis: RedisService,
   ) {}
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
@@ -48,11 +55,18 @@ export class UserService {
   }
 
   async findById(id: string): Promise<UserResponseDto> {
+    const cacheKey = `users:me:${id}`;
+    const cachedUser = await this.redis.get(cacheKey);
+    if (cachedUser) {
+      return JSON.parse(cachedUser) as UserResponseDto;
+    }
     const user = await this.userRepository.findById(id);
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return this.toResponse(user);
+    const response = this.toResponse(user);
+    await this.redis.set(cacheKey, JSON.stringify(response), CACHE_TTL_SECONDS);
+    return response;
   }
 
   findByLogin(login: string): Promise<User | null> {
@@ -64,11 +78,59 @@ export class UserService {
   }
 
   async findAll(query: GetUsersQueryDto): Promise<PaginatedUserResponseDto> {
+    const cacheKey = `users:all:page=${query.page}:limit=${query.limit}:login=${query.login ?? ''}`;
+
+    const cachedUsers = await this.redis.get(cacheKey);
+    if (cachedUsers) {
+      return JSON.parse(cachedUsers) as PaginatedUserResponseDto;
+    }
     const { users, total, page, limit } =
       await this.userRepository.findAll(query);
     const totalPages = Math.ceil(total / limit);
     const usersResponse = users.map((user) => this.toResponse(user));
-    return { users: usersResponse, meta: { total, page, limit, totalPages } };
+    const response = {
+      users: usersResponse,
+      meta: { total, page, limit, totalPages },
+    };
+    await this.redis.set(cacheKey, JSON.stringify(response), CACHE_TTL_SECONDS);
+    return response;
+  }
+
+  async findActive(
+    query: GetActiveUsersQueryDto,
+  ): Promise<PaginatedActiveUsersResponseDto> {
+    if (query.minAge > query.maxAge) {
+      throw new BadRequestException('Min age cannot be greater than max age');
+    }
+    const { rows, total, page, limit } = await this.userRepository.findActive(
+      query.minAge,
+      query.maxAge,
+      query.page,
+      query.limit,
+    );
+    const totalPages = Math.ceil(total / limit);
+    return {
+      users: rows.map((row) => ({
+        user: {
+          id: row.id,
+          email: row.email,
+          login: row.login,
+          age: row.age,
+          role: row.role,
+          description: row.description,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+          deletedAt: row.deletedAt,
+        },
+        latestAvatar: {
+          id: row.avatarId,
+          userId: row.avatarUserId,
+          path: row.avatarPath,
+          createdAt: row.avatarCreatedAt,
+        },
+      })),
+      meta: { total, page, limit, totalPages },
+    };
   }
 
   async updateById(id: string, dto: UpdateUserDto): Promise<UserResponseDto> {

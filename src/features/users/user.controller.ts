@@ -28,6 +28,8 @@ import { Role } from '@prisma/client';
 import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
+import { PaginatedActiveUsersResponseDto } from './dto/active-users-response.dto.js';
+import { GetActiveUsersQueryDto } from './dto/get-active-users-query.dto.js';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -56,6 +58,21 @@ export class UserController {
   @ApiNotFoundResponse({ description: 'User not found or soft-deleted' })
   getMe(@CurrentUser() user: JwtPayload): Promise<UserResponseDto> {
     return this.userService.findById(user.sub);
+  }
+
+  @Get('active')
+  @Roles(Role.ADMIN)
+  @ApiOperation({
+    summary:
+      'List active users by age range (admin). More than 2 active avatars, non-empty description, latest avatar. Supports pagination.',
+  })
+  @ApiOkResponse({ type: PaginatedActiveUsersResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse({ description: 'Requires ADMIN role' })
+  getActiveUsers(
+    @Query() query: GetActiveUsersQueryDto,
+  ): Promise<PaginatedActiveUsersResponseDto> {
+    return this.userService.findActive(query);
   }
 
   @Patch('me')

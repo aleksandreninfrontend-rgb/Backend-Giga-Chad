@@ -7,10 +7,12 @@ import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthModule } from './auth/jwt-auth.module.js';
 import { AccessTokenGuard } from './auth/guards/access-token.guard.js';
 import { RolesGuard } from './auth/guards/roles-guard.js';
+import { RedisModule } from './providers/cache/redis.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    RedisModule,
     PrismaModule,
     UsersModule,
     AuthModule,
