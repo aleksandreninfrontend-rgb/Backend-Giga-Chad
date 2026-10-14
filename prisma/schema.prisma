@@ -25,6 +25,7 @@ model User {
   refreshTokens RefreshToken[]
   role Role @default(USER)
   avatars Avatar[]
+  balance Decimal @default(0) @db.Decimal(12, 2)
 }
 
 model RefreshToken {
