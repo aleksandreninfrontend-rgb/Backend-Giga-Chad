@@ -20,6 +20,7 @@ import { GetActiveUsersQueryDto } from './dto/get-active-users-query.dto.js';
 import { RedisService } from '../../providers/cache/redis.service.js';
 
 const CACHE_TTL_SECONDS = Number(process.env.CACHE_TTL_SECONDS ?? '30');
+const USERS_ALL_VERSION_KEY = 'users:all:version';
 
 @Injectable()
 export class UserService {
@@ -50,7 +51,7 @@ export class UserService {
       age: dto.age,
       description: dto.description,
     });
-
+    await this.redis.incr(USERS_ALL_VERSION_KEY);
     return this.toResponse(user);
   }
 
@@ -78,7 +79,8 @@ export class UserService {
   }
 
   async findAll(query: GetUsersQueryDto): Promise<PaginatedUserResponseDto> {
-    const cacheKey = `users:all:page=${query.page}:limit=${query.limit}:login=${query.login ?? ''}`;
+    const version = (await this.redis.get(USERS_ALL_VERSION_KEY)) ?? '0';
+    const cacheKey = `users:all:version=${version}:page=${query.page}:limit=${query.limit}:login=${query.login ?? ''}`;
 
     const cachedUsers = await this.redis.get(cacheKey);
     if (cachedUsers) {
@@ -156,7 +158,14 @@ export class UserService {
     }
 
     const updatedUser = await this.userRepository.updateById(id, dto);
-    return this.toResponse(updatedUser);
+    const response = this.toResponse(updatedUser);
+    await this.redis.set(
+      `users:me:${id}`,
+      JSON.stringify(response),
+      CACHE_TTL_SECONDS,
+    );
+    await this.redis.incr(USERS_ALL_VERSION_KEY);
+    return response;
   }
 
   async softDeleteById(
@@ -172,6 +181,8 @@ export class UserService {
       await this.sessionsService.revokeAll(id, tx);
       await this.userRepository.softDeleteById(id, tx);
     });
+    await this.redis.del(`users:me:${id}`);
+    await this.redis.incr(USERS_ALL_VERSION_KEY);
   }
 
   toResponse(user: User): UserResponseDto {
