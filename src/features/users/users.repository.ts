@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma, Role } from '@prisma/client';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
+import { InsufficientFundsException } from './exceptions/insufficient-funds.exception.js';
 
 export type ActiveUserWithLatestAvatarRow = {
   id: string;
@@ -11,6 +12,7 @@ export type ActiveUserWithLatestAvatarRow = {
   age: number;
   description: string;
   role: Role;
+  balance: Prisma.Decimal;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -82,6 +84,7 @@ export class UsersRepository {
           u.age,
           u.description,
           u.role,
+          u.balance,
           u."createdAt",
           u."updatedAt",
           u."deletedAt",
@@ -148,5 +151,49 @@ export class UsersRepository {
       where: { id },
       data: { deletedAt: new Date() },
     });
+  }
+
+  async transfer(
+    fromId: string,
+    toId: string,
+    amount: Prisma.Decimal,
+    tx: Prisma.TransactionClient,
+  ): Promise<{ fromUser: User; toUser: User }> {
+    const to = await tx.user.findFirst({
+      where: { id: toId, deletedAt: null },
+    });
+    if (!to) {
+      throw new NotFoundException('User not found');
+    }
+
+    const debit = await tx.user.updateMany({
+      where: {
+        id: fromId,
+        deletedAt: null,
+        balance: { gte: amount },
+      },
+      data: { balance: { decrement: amount } },
+    });
+
+    if (debit.count === 0) {
+      const from = await tx.user.findFirst({
+        where: { id: fromId, deletedAt: null },
+      });
+      if (!from) {
+        throw new NotFoundException('User not found');
+      }
+      throw new InsufficientFundsException();
+    }
+
+    const toUser = await tx.user.update({
+      where: { id: toId },
+      data: { balance: { increment: amount } },
+    });
+
+    const fromUser = await tx.user.findFirstOrThrow({
+      where: { id: fromId },
+    });
+
+    return { fromUser, toUser };
   }
 }

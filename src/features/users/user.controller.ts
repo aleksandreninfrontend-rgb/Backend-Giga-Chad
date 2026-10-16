@@ -7,9 +7,11 @@ import {
   HttpStatus,
   Param,
   Patch,
+  Post,
   Query,
 } from '@nestjs/common';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
   ApiForbiddenResponse,
   ApiNoContentResponse,
@@ -30,6 +32,7 @@ import { PaginatedUserResponseDto } from './dto/paginated-user-response.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
 import { PaginatedActiveUsersResponseDto } from './dto/active-users-response.dto.js';
 import { GetActiveUsersQueryDto } from './dto/get-active-users-query.dto.js';
+import { TransferDto } from './dto/transfer.dto.js';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -73,6 +76,24 @@ export class UserController {
     @Query() query: GetActiveUsersQueryDto,
   ): Promise<PaginatedActiveUsersResponseDto> {
     return this.userService.findActive(query);
+  }
+
+  @Post('me/transfer')
+  @ApiOperation({
+    summary:
+      'Transfer USD from the current user balance to another user (race-safe)',
+  })
+  @ApiOkResponse({ type: UserResponseDto })
+  @ApiUnauthorizedResponse()
+  @ApiBadRequestResponse({
+    description: 'Invalid amount, self-transfer, or insufficient funds',
+  })
+  @ApiNotFoundResponse({ description: 'Sender or recipient not found' })
+  transfer(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: TransferDto,
+  ): Promise<UserResponseDto> {
+    return this.userService.transfer(user.sub, dto);
   }
 
   @Patch('me')

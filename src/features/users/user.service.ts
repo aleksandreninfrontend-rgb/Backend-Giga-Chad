@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
-import type { User } from '@prisma/client';
+import { Prisma, type User } from '@prisma/client';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
 import { UsersRepository } from './users.repository.js';
@@ -18,6 +18,7 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import { PaginatedActiveUsersResponseDto } from './dto/active-users-response.dto.js';
 import { GetActiveUsersQueryDto } from './dto/get-active-users-query.dto.js';
 import { RedisService } from '../../providers/cache/redis.service.js';
+import { TransferDto } from './dto/transfer.dto.js';
 
 const CACHE_TTL_SECONDS = Number(process.env.CACHE_TTL_SECONDS ?? '30');
 const USERS_ALL_VERSION_KEY = 'users:all:version';
@@ -120,6 +121,10 @@ export class UserService {
           age: row.age,
           role: row.role,
           description: row.description,
+          balance:
+            row.balance instanceof Prisma.Decimal
+              ? row.balance.toFixed(2)
+              : String(row.balance),
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
           deletedAt: row.deletedAt,
@@ -185,8 +190,32 @@ export class UserService {
     await this.redis.incr(USERS_ALL_VERSION_KEY);
   }
 
+  async transfer(fromId: string, dto: TransferDto): Promise<UserResponseDto> {
+    if (fromId === dto.recipientId) {
+      throw new BadRequestException('Cannot transfer to yourself');
+    }
+
+    const amount = new Prisma.Decimal(dto.amount);
+    if (amount.lessThanOrEqualTo(0)) {
+      throw new BadRequestException('Amount must be greater than 0');
+    }
+
+    const { fromUser } = await this.prisma.$transaction((tx) =>
+      this.userRepository.transfer(fromId, dto.recipientId, amount, tx),
+    );
+
+    await this.redis.del(`users:me:${fromId}`);
+    await this.redis.del(`users:me:${dto.recipientId}`);
+    await this.redis.incr(USERS_ALL_VERSION_KEY);
+
+    return this.toResponse(fromUser);
+  }
+
   toResponse(user: User): UserResponseDto {
-    const { password: _password, ...rest } = user;
-    return rest;
+    const { password: _password, balance, ...rest } = user;
+    return {
+      ...rest,
+      balance: balance.toFixed(2),
+    };
   }
 }
