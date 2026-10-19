@@ -6,6 +6,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import type { Avatar } from '@prisma/client';
 import { AvatarRepository } from './avatar.repository.js';
@@ -19,6 +20,7 @@ const MAX_AVATAR_SIZE_BYTES = 10 * 1024 * 1024;
 
 @Injectable()
 export class AvatarService {
+  private readonly logger = new Logger(AvatarService.name);
   constructor(
     private readonly avatarRepository: AvatarRepository,
     @Inject(IFileService) private readonly fileService: IFileService,
@@ -52,6 +54,12 @@ export class AvatarService {
       path,
       user: { connect: { id: userId } },
     });
+    this.logger.log({
+      msg: 'Avatar uploaded',
+      userId,
+      avatarId: avatar.id,
+      path: avatar.path,
+    });
 
     return this.toResponse(avatar);
   }
@@ -70,6 +78,11 @@ export class AvatarService {
       throw new ForbiddenException();
     }
     await this.avatarRepository.softDeleteById(avatarId);
+    this.logger.log({
+      msg: 'Avatar soft-deleted',
+      userId,
+      avatarId,
+    });
   }
 
   private toResponse(avatar: Avatar): AvatarResponseDto {

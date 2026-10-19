@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { Prisma, type User } from '@prisma/client';
@@ -25,6 +26,8 @@ const USERS_ALL_VERSION_KEY = 'users:all:version';
 
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     private readonly userRepository: UsersRepository,
     private readonly sessionsService: SessionsService,
@@ -188,6 +191,11 @@ export class UserService {
     });
     await this.redis.del(`users:me:${id}`);
     await this.redis.incr(USERS_ALL_VERSION_KEY);
+    this.logger.log({
+      msg: 'User soft-deleted',
+      userId: id,
+      actorId: options?.actorId,
+    });
   }
 
   async transfer(fromId: string, dto: TransferDto): Promise<UserResponseDto> {
@@ -207,6 +215,12 @@ export class UserService {
     await this.redis.del(`users:me:${fromId}`);
     await this.redis.del(`users:me:${dto.recipientId}`);
     await this.redis.incr(USERS_ALL_VERSION_KEY);
+    this.logger.log({
+      msg: 'Transfer completed',
+      fromId,
+      recipientId: dto.recipientId,
+      amount: amount.toString(),
+    });
 
     return this.toResponse(fromUser);
   }
