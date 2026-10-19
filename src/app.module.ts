@@ -8,10 +8,14 @@ import { JwtAuthModule } from './auth/jwt-auth.module.js';
 import { AccessTokenGuard } from './auth/guards/access-token.guard.js';
 import { RolesGuard } from './auth/guards/roles-guard.js';
 import { RedisModule } from './providers/cache/redis.module.js';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AvatarCleanupModule } from './features/avatar-cleanup/avatar-cleanup.module.js';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
+    AvatarCleanupModule,
     RedisModule,
     PrismaModule,
     UsersModule,

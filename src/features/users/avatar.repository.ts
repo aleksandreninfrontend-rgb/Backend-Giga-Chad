@@ -31,4 +31,16 @@ export class AvatarRepository {
       data: { deletedAt: new Date() },
     });
   }
+
+  findExpiredSoftDeleted(cutoff: Date) {
+    return this.prisma.avatar.findMany({
+      where: {
+        deletedAt: { not: null, lt: cutoff },
+      },
+    });
+  }
+
+  hardDeleteById(id: string) {
+    return this.prisma.avatar.delete({ where: { id } });
+  }
 }
