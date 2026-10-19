@@ -8,7 +8,15 @@ export class AvatarCleanupService {
   constructor(@InjectQueue('avatar-cleanup') private readonly queue: Queue) {}
 
   async enqueueCleanup(): Promise<EnqueueCleanupResponseDto> {
-    await this.queue.add('cleanup', {});
+    await this.queue.add(
+      'cleanup',
+      {},
+      {
+        jobId: 'avatar-cleanup',
+        removeOnComplete: true,
+        removeOnFail: true,
+      },
+    );
     return { queued: true };
   }
 }
