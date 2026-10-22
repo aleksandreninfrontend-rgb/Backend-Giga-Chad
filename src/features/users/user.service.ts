@@ -20,20 +20,23 @@ import { PaginatedActiveUsersResponseDto } from './dto/active-users-response.dto
 import { GetActiveUsersQueryDto } from './dto/get-active-users-query.dto.js';
 import { RedisService } from '../../providers/cache/redis.service.js';
 import { TransferDto } from './dto/transfer.dto.js';
+import { ConfigService } from '@nestjs/config';
 
-const CACHE_TTL_SECONDS = Number(process.env.CACHE_TTL_SECONDS ?? '30');
 const USERS_ALL_VERSION_KEY = 'users:all:version';
 
 @Injectable()
 export class UserService {
   private readonly logger = new Logger(UserService.name);
-
+  private readonly cacheTtlSeconds: number;
   constructor(
     private readonly userRepository: UsersRepository,
     private readonly sessionsService: SessionsService,
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-  ) {}
+    private readonly config: ConfigService,
+  ) {
+    this.cacheTtlSeconds = Number(config.get('CACHE_TTL_SECONDS', '30'));
+  }
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
     const existingByEmail = await this.userRepository.findByEmail(dto.email);
@@ -70,7 +73,11 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
     const response = this.toResponse(user);
-    await this.redis.set(cacheKey, JSON.stringify(response), CACHE_TTL_SECONDS);
+    await this.redis.set(
+      cacheKey,
+      JSON.stringify(response),
+      this.cacheTtlSeconds,
+    );
     return response;
   }
 
@@ -98,7 +105,11 @@ export class UserService {
       users: usersResponse,
       meta: { total, page, limit, totalPages },
     };
-    await this.redis.set(cacheKey, JSON.stringify(response), CACHE_TTL_SECONDS);
+    await this.redis.set(
+      cacheKey,
+      JSON.stringify(response),
+      this.cacheTtlSeconds,
+    );
     return response;
   }
 
@@ -170,7 +181,7 @@ export class UserService {
     await this.redis.set(
       `users:me:${id}`,
       JSON.stringify(response),
-      CACHE_TTL_SECONDS,
+      this.cacheTtlSeconds,
     );
     await this.redis.incr(USERS_ALL_VERSION_KEY);
     return response;

@@ -7,16 +7,20 @@ import { RemoveException } from './exceptions/remove.exception.js';
 import { UploadException } from './exceptions/upload.exception.js';
 import { UploadFilePayloadDto } from './dto/upload-file-payload.dto.js';
 import { UploadFileResultDto } from './dto/upload-file-result.dto.js';
+import { ConfigService } from '@nestjs/config';
 import { RemoveFilePayloadDto } from './dto/remove-file-payload.dto.js';
 
 @Injectable()
 export class S3Service extends IFileService {
   private readonly logger = new Logger(S3Service.name);
+  private readonly bucketName: string;
 
-  private readonly bucketName = 'main';
-
-  constructor(@Inject(S3Lib) private readonly S3: AWS.S3) {
+  constructor(
+    @Inject(S3Lib) private readonly S3: AWS.S3,
+    config: ConfigService,
+  ) {
     super();
+    this.bucketName = config.getOrThrow<string>('S3_BUCKET');
   }
 
   async uploadFile(dto: UploadFilePayloadDto): Promise<UploadFileResultDto> {

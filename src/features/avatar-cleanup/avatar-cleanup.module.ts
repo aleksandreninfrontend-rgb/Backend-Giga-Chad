@@ -7,13 +7,17 @@ import { AvatarCleanupController } from './avatar-cleanup.controller.js';
 import { AvatarCleanupProcessor } from './avatar-cleanup.processor.js';
 import { AvatarRepository } from '../users/avatar.repository.js';
 import { AvatarCleanupScheduler } from './avatar-cleanup.scheduler.js';
+import { ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
     FilesModule,
     PrismaModule,
-    BullModule.forRoot({
-      redis: process.env.REDIS_URL ?? 'redis://localhost:6379',
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        redis: config.get('REDIS_URL', 'redis://localhost:6379'),
+      }),
     }),
     BullModule.registerQueue({
       name: 'avatar-cleanup',
