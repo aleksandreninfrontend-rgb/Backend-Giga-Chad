@@ -38,6 +38,18 @@ export class UserService {
     this.cacheTtlSeconds = Number(config.get('CACHE_TTL_SECONDS', '30'));
   }
 
+  private meVersionKey(userId: string): string {
+    return `users:me:${userId}:version`;
+  }
+
+  private meCacheKey(userId: string, version: string): string {
+    return `users:me:${userId}:version=${version}`;
+  }
+
+  private async invalidateMeCache(userId: string): Promise<void> {
+    await this.redis.incr(this.meVersionKey(userId));
+  }
+
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
     const existingByEmail = await this.userRepository.findByEmail(dto.email);
     if (existingByEmail) {
@@ -63,7 +75,8 @@ export class UserService {
   }
 
   async findById(id: string): Promise<UserResponseDto> {
-    const cacheKey = `users:me:${id}`;
+    const version = (await this.redis.get(this.meVersionKey(id))) ?? '0';
+    const cacheKey = this.meCacheKey(id, version);
     const cachedUser = await this.redis.get(cacheKey);
     if (cachedUser) {
       return JSON.parse(cachedUser) as UserResponseDto;
@@ -73,11 +86,14 @@ export class UserService {
       throw new NotFoundException('User not found');
     }
     const response = this.toResponse(user);
-    await this.redis.set(
-      cacheKey,
-      JSON.stringify(response),
-      this.cacheTtlSeconds,
-    );
+    const versionAfter = (await this.redis.get(this.meVersionKey(id))) ?? '0';
+    if (versionAfter === version) {
+      await this.redis.set(
+        cacheKey,
+        JSON.stringify(response),
+        this.cacheTtlSeconds,
+      );
+    }
     return response;
   }
 
@@ -178,11 +194,7 @@ export class UserService {
 
     const updatedUser = await this.userRepository.updateById(id, dto);
     const response = this.toResponse(updatedUser);
-    await this.redis.set(
-      `users:me:${id}`,
-      JSON.stringify(response),
-      this.cacheTtlSeconds,
-    );
+    await this.invalidateMeCache(id);
     await this.redis.incr(USERS_ALL_VERSION_KEY);
     return response;
   }
@@ -200,7 +212,7 @@ export class UserService {
       await this.sessionsService.revokeAll(id, tx);
       await this.userRepository.softDeleteById(id, tx);
     });
-    await this.redis.del(`users:me:${id}`);
+    await this.invalidateMeCache(id);
     await this.redis.incr(USERS_ALL_VERSION_KEY);
     this.logger.log({
       msg: 'User soft-deleted',
@@ -223,8 +235,8 @@ export class UserService {
       this.userRepository.transfer(fromId, dto.recipientId, amount, tx),
     );
 
-    await this.redis.del(`users:me:${fromId}`);
-    await this.redis.del(`users:me:${dto.recipientId}`);
+    await this.invalidateMeCache(fromId);
+    await this.invalidateMeCache(dto.recipientId);
     await this.redis.incr(USERS_ALL_VERSION_KEY);
     this.logger.log({
       msg: 'Transfer completed',
