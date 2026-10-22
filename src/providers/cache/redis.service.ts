@@ -28,4 +28,13 @@ export class RedisService implements OnModuleDestroy {
   async onModuleDestroy() {
     await this.client.quit();
   }
+
+  async acquireLock(key: string, ttlSeconds: number): Promise<boolean> {
+    const result = await this.client.set(key, '1', 'EX', ttlSeconds, 'NX');
+    return result === 'OK';
+  }
+
+  async releaseLock(key: string): Promise<void> {
+    await this.client.del(key);
+  }
 }
