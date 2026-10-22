@@ -28,6 +28,7 @@ import type { Request } from 'express';
           res.setHeader('x-request-id', id);
           return id;
         },
+        redact: ['req.headers.authorization', 'req.headers.cookie'],
       },
     }),
     ClsModule.forRoot({
