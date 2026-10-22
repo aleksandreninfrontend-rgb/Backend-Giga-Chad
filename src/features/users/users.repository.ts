@@ -159,10 +159,13 @@ export class UsersRepository {
     amount: Prisma.Decimal,
     tx: Prisma.TransactionClient,
   ): Promise<{ fromUser: User; toUser: User }> {
-    const to = await tx.user.findFirst({
-      where: { id: toId, deletedAt: null },
-    });
-    if (!to) {
+    const locked = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT id FROM "User"
+      WHERE id IN (${Prisma.join([fromId, toId])}) AND "deletedAt" IS NULL
+      ORDER BY id
+      FOR UPDATE
+    `);
+    if (locked.length !== 2) {
       throw new NotFoundException('User not found');
     }
 
@@ -176,12 +179,6 @@ export class UsersRepository {
     });
 
     if (debit.count === 0) {
-      const from = await tx.user.findFirst({
-        where: { id: fromId, deletedAt: null },
-      });
-      if (!from) {
-        throw new NotFoundException('User not found');
-      }
       throw new InsufficientFundsException();
     }
 
