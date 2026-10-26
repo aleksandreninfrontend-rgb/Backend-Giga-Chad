@@ -3,8 +3,12 @@ import { Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IFileService } from '../../providers/files/files.adapter.js';
 import { AvatarRepository } from '../users/avatar.repository.js';
+import {
+  AVATAR_CLEANUP_JOB,
+  AVATAR_CLEANUP_QUEUE,
+} from './avatar-cleanup.constants.js';
 
-@Processor('avatar-cleanup')
+@Processor(AVATAR_CLEANUP_QUEUE)
 export class AvatarCleanupProcessor {
   private readonly logger = new Logger(AvatarCleanupProcessor.name);
   constructor(
@@ -13,7 +17,7 @@ export class AvatarCleanupProcessor {
     private readonly config: ConfigService,
   ) {}
 
-  @Process('cleanup')
+  @Process(AVATAR_CLEANUP_JOB)
   async handleCleanup() {
     const retentionMs = Number(
       this.config.get('AVATAR_CLEANUP_RETENTION_MS', '604800000'),

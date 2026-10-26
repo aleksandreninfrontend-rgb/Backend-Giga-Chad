@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { UsersModule } from './features/users/users.module.js';
 import { AuthModule } from './auth/auth.module.js';
@@ -15,6 +15,7 @@ import { randomUUID } from 'node:crypto';
 import { ClsModule, ClsServiceManager } from 'nestjs-cls';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import type { Request } from 'express';
+import { BullModule } from '@nestjs/bull';
 
 @Module({
   imports: [
@@ -40,6 +41,12 @@ import type { Request } from 'express';
         },
         redact: ['req.headers.authorization', 'req.headers.cookie'],
       },
+    }),
+    BullModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        redis: config.get('REDIS_URL', 'redis://localhost:6379'),
+      }),
     }),
     ScheduleModule.forRoot(),
     AvatarCleanupModule,
