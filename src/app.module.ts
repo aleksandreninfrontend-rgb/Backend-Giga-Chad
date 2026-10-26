@@ -12,25 +12,13 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AvatarCleanupModule } from './features/avatar-cleanup/avatar-cleanup.module.js';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'node:crypto';
-import { ClsModule } from 'nestjs-cls';
+import { ClsModule, ClsServiceManager } from 'nestjs-cls';
 import { IncomingMessage, ServerResponse } from 'node:http';
 import type { Request } from 'express';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    LoggerModule.forRoot({
-      pinoHttp: {
-        genReqId: (req: IncomingMessage, res: ServerResponse) => {
-          const incoming = req.headers['x-request-id'];
-          const fromHeader = Array.isArray(incoming) ? incoming[0] : incoming;
-          const id = fromHeader?.trim() || randomUUID();
-          res.setHeader('x-request-id', id);
-          return id;
-        },
-        redact: ['req.headers.authorization', 'req.headers.cookie'],
-      },
-    }),
     ClsModule.forRoot({
       global: true,
       middleware: {
@@ -41,6 +29,16 @@ import type { Request } from 'express';
           const fromHeader = Array.isArray(incoming) ? incoming[0] : incoming;
           return fromHeader?.trim() || randomUUID();
         },
+      },
+    }),
+    LoggerModule.forRoot({
+      pinoHttp: {
+        genReqId: (_req: IncomingMessage, res: ServerResponse) => {
+          const id = ClsServiceManager.getClsService().getId();
+          res.setHeader('x-request-id', id);
+          return id;
+        },
+        redact: ['req.headers.authorization', 'req.headers.cookie'],
       },
     }),
     ScheduleModule.forRoot(),
