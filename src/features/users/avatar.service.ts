@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { extname } from 'node:path';
 import {
   BadRequestException,
   ForbiddenException,
@@ -15,10 +14,11 @@ import { IFileService } from '../../providers/files/files.adapter.js';
 import type { IUploadedMulterFile } from '../../providers/files/s3/interfaces/upload-file.interface.js';
 import { AvatarResponseDto } from './dto/avatar-response.dto.js';
 import { RedisService } from '../../providers/cache/redis.service.js';
+import {
+  AVATAR_MIME_TO_EXT,
+  MAX_AVATARS_PER_USER,
+} from './avatar.constants.js';
 
-const MAX_AVATARS_PER_USER = 5;
-const ALLOWED_EXTENSIONS = new Set(['.jpeg', '.png']);
-const MAX_AVATAR_SIZE_BYTES = 10 * 1024 * 1024;
 const AVATAR_LOCK_TTL_SECONDS = 60;
 
 @Injectable()
@@ -47,14 +47,13 @@ export class AvatarService {
       const count = await this.avatarRepository.countActiveByUserId(userId);
 
       if (count >= MAX_AVATARS_PER_USER) {
-        throw new BadRequestException('User already has 5 avatars');
-      }
-      if (!file?.size || file.size > MAX_AVATAR_SIZE_BYTES) {
-        throw new BadRequestException('Avatar must be at most 10MB');
+        throw new BadRequestException(
+          `User already has ${MAX_AVATARS_PER_USER} avatars`,
+        );
       }
 
-      const ext = extname(file.originalname).toLowerCase();
-      if (!ALLOWED_EXTENSIONS.has(ext)) {
+      const ext = AVATAR_MIME_TO_EXT[file.mimetype ?? ''];
+      if (!ext) {
         throw new BadRequestException('Invalid file type. Allowed: jpeg, png');
       }
 

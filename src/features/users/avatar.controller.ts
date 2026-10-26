@@ -1,9 +1,12 @@
 import {
   Controller,
   Delete,
+  FileTypeValidator,
   HttpCode,
   HttpStatus,
+  MaxFileSizeValidator,
   Param,
+  ParseFilePipe,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -27,8 +30,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator.js';
 import type { JwtPayload } from '../../auth/types/jwt-payload.js';
 import type { IUploadedMulterFile } from '../../providers/files/s3/interfaces/upload-file.interface.js';
 import { AvatarResponseDto } from './dto/avatar-response.dto.js';
-
-const MAX_AVATAR_SIZE_BYTES = 10 * 1024 * 1024;
+import { MAX_AVATAR_SIZE_BYTES } from './avatar.constants.js';
 
 @ApiTags('users')
 @ApiBearerAuth()
@@ -58,7 +60,18 @@ export class AvatarController {
   @ApiUnauthorizedResponse()
   upload(
     @CurrentUser() user: JwtPayload,
-    @UploadedFile() file: IUploadedMulterFile,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: MAX_AVATAR_SIZE_BYTES }),
+          new FileTypeValidator({
+            fileType: /^image\/(jpeg|png)$/,
+            overrideMimeType: true,
+          }),
+        ],
+      }),
+    )
+    file: IUploadedMulterFile,
   ): Promise<AvatarResponseDto> {
     return this.avatarService.upload(user.sub, file);
   }

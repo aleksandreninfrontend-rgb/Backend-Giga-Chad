@@ -1,6 +1,27 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  Max,
+  Min,
+  Validate,
+  ValidationArguments,
+  ValidatorConstraint,
+  ValidatorConstraintInterface,
+} from 'class-validator';
+
+@ValidatorConstraint({ name: 'minAgeLessOrEqualMaxAge', async: false })
+class MinAgeLessOrEqualMaxAgeConstraint implements ValidatorConstraintInterface {
+  validate(_: unknown, args: ValidationArguments): boolean {
+    const { minAge, maxAge } = args.object as GetActiveUsersQueryDto;
+    return minAge <= maxAge;
+  }
+
+  defaultMessage(): string {
+    return 'Min age cannot be greater than max age';
+  }
+}
 
 export class GetActiveUsersQueryDto {
   @ApiPropertyOptional({ example: 1, default: 1, minimum: 1 })
@@ -30,5 +51,6 @@ export class GetActiveUsersQueryDto {
   @IsInt()
   @Min(1)
   @Max(120)
+  @Validate(MinAgeLessOrEqualMaxAgeConstraint)
   maxAge: number;
 }

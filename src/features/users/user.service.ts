@@ -132,9 +132,6 @@ export class UserService {
   async findActive(
     query: GetActiveUsersQueryDto,
   ): Promise<PaginatedActiveUsersResponseDto> {
-    if (query.minAge > query.maxAge) {
-      throw new BadRequestException('Min age cannot be greater than max age');
-    }
     const { rows, total, page, limit } = await this.userRepository.findActive(
       query.minAge,
       query.maxAge,
@@ -144,21 +141,18 @@ export class UserService {
     const totalPages = Math.ceil(total / limit);
     return {
       users: rows.map((row) => ({
-        user: {
+        user: this.toResponse({
           id: row.id,
           email: row.email,
           login: row.login,
           age: row.age,
           role: row.role,
           description: row.description,
-          balance:
-            row.balance instanceof Prisma.Decimal
-              ? row.balance.toFixed(2)
-              : String(row.balance),
+          balance: row.balance,
           createdAt: row.createdAt,
           updatedAt: row.updatedAt,
           deletedAt: row.deletedAt,
-        },
+        }),
         latestAvatar: {
           id: row.avatarId,
           userId: row.avatarUserId,
@@ -248,8 +242,8 @@ export class UserService {
     return this.toResponse(fromUser);
   }
 
-  toResponse(user: User): UserResponseDto {
-    const { password: _password, balance, ...rest } = user;
+  toResponse(user: Omit<User, 'password'> | User): UserResponseDto {
+    const { password: _password, balance, ...rest } = user as User;
     return {
       ...rest,
       balance: balance.toFixed(2),
