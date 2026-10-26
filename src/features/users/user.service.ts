@@ -218,11 +218,25 @@ export class UserService {
 
   async transfer(fromId: string, dto: TransferDto): Promise<UserResponseDto> {
     if (fromId === dto.recipientId) {
+      this.logger.warn({
+        msg: 'Transfer failed',
+        reason: 'self_transfer',
+        fromId,
+        recipientId: dto.recipientId,
+        amount: dto.amount,
+      });
       throw new BadRequestException('Cannot transfer to yourself');
     }
 
     const amount = new Prisma.Decimal(dto.amount);
     if (amount.lessThanOrEqualTo(0)) {
+      this.logger.warn({
+        msg: 'Transfer failed',
+        reason: 'invalid_amount',
+        fromId,
+        recipientId: dto.recipientId,
+        amount: dto.amount,
+      });
       throw new BadRequestException('Amount must be greater than 0');
     }
 
@@ -235,9 +249,23 @@ export class UserService {
       );
 
       if (result.status === 'user_not_found') {
+        this.logger.warn({
+          msg: 'Transfer failed',
+          reason: 'user_not_found',
+          fromId,
+          recipientId: dto.recipientId,
+          amount: amount.toString(),
+        });
         throw new NotFoundException('User not found');
       }
       if (result.status === 'insufficient_funds') {
+        this.logger.warn({
+          msg: 'Transfer failed',
+          reason: 'insufficient_funds',
+          fromId,
+          recipientId: dto.recipientId,
+          amount: amount.toString(),
+        });
         throw new InsufficientFundsException();
       }
 
