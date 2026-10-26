@@ -24,6 +24,8 @@ model User {
   deletedAt DateTime?
   refreshTokens RefreshToken[]
   role Role @default(USER)
+  avatars Avatar[]
+  balance Decimal @default(0) @db.Decimal(12, 2)
 }
 
 model RefreshToken {
@@ -34,4 +36,13 @@ model RefreshToken {
   expiresAt DateTime
   createdAt DateTime  @default(now())
   revokedAt DateTime? 
+}
+
+model Avatar {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  path String
+  createdAt DateTime @default(now())
+  deletedAt DateTime?
 }

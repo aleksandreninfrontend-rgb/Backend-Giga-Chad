@@ -28,4 +28,11 @@ export class UserResponseDto {
 
   @ApiPropertyOptional({ nullable: true, type: String, format: 'date-time' })
   deletedAt?: Date | null;
+
+  @ApiProperty({
+    example: '100.55',
+    type: String,
+    description: 'Balance in USD',
+  })
+  balance: string;
 }

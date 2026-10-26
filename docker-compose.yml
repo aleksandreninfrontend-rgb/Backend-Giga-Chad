@@ -1,4 +1,45 @@
 services:
+  # MinIO Docker Hub/Quay images were removed/gated (Sep 2026).
+  # RustFS is a common drop-in S3-compatible alternative (ports + MinIO-style creds).
+  rustfs:
+    image: rustfs/rustfs:latest
+    ports:
+      - '19000:9000'
+      - '19001:9001'
+    volumes:
+      - rustfs_storage:/data
+    environment:
+      RUSTFS_ACCESS_KEY: minioadmin
+      RUSTFS_SECRET_KEY: minioadmin
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:9000/health']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # Create S3_BUCKET=main after RustFS is healthy (RustFS does not auto-create buckets).
+  s3-init:
+    image: amazon/aws-cli:2.17.56
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      AWS_DEFAULT_REGION: us-east-1
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - |
+        set -e
+        aws configure set default.s3.addressing_style path
+        echo "Creating bucket main (idempotent)..."
+        aws --endpoint-url http://rustfs:9000 s3 mb s3://main 2>/dev/null \
+          || aws --endpoint-url http://rustfs:9000 s3 ls s3://main >/dev/null
+        aws --endpoint-url http://rustfs:9000 s3 ls
+        echo "Bucket main is ready"
+    restart: 'no'
+
   postgres:
     image: postgres:16
     container_name: backend-giga-chad-postgres
@@ -13,13 +54,16 @@ services:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test:
-        [
-          'CMD-SHELL',
-          'pg_isready -U backend_giga_chad -d backend_giga_chad',
-        ]
+        ['CMD-SHELL', 'pg_isready -U backend_giga_chad -d backend_giga_chad']
       interval: 5s
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
+
 volumes:
+  rustfs_storage:
   postgres_data:

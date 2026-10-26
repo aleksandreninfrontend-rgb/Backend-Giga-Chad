@@ -1,8 +1,30 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
+
+export type TransferResult =
+  | { status: 'ok'; fromUser: User; toUser: User }
+  | { status: 'user_not_found' }
+  | { status: 'insufficient_funds' };
+
+export type ActiveUserWithLatestAvatarRow = {
+  id: string;
+  email: string;
+  login: string;
+  age: number;
+  description: string;
+  role: Role;
+  balance: Prisma.Decimal;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt: Date | null;
+  avatarId: string;
+  avatarUserId: string;
+  avatarPath: string;
+  avatarCreatedAt: Date;
+};
 
 @Injectable()
 export class UsersRepository {
@@ -45,6 +67,84 @@ export class UsersRepository {
     return { users, total, page: query.page, limit: query.limit };
   }
 
+  async findActive(
+    minAge: number,
+    maxAge: number,
+    page: number,
+    limit: number,
+  ): Promise<{
+    rows: ActiveUserWithLatestAvatarRow[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
+    const offset = (page - 1) * limit;
+    const [rows, countRows] = await Promise.all([
+      this.prisma.$queryRaw<ActiveUserWithLatestAvatarRow[]>(Prisma.sql`
+        SELECT
+          u.id,
+          u.email,
+          u.login,
+          u.age,
+          u.description,
+          u.role,
+          u.balance,
+          u."createdAt",
+          u."updatedAt",
+          u."deletedAt",
+          a.id AS "avatarId",
+          a."userId" AS "avatarUserId",
+          a.path AS "avatarPath",
+          a."createdAt" AS "avatarCreatedAt"
+        FROM "User" u
+        INNER JOIN (
+          SELECT "userId"
+          FROM "Avatar"
+          WHERE "deletedAt" IS NULL
+          GROUP BY "userId"
+          HAVING COUNT(*) > 2
+        ) active_avatar_users ON active_avatar_users."userId" = u.id
+        INNER JOIN LATERAL (
+          SELECT id, "userId", path, "createdAt"
+          FROM "Avatar"
+          WHERE "userId" = u.id
+            AND "deletedAt" IS NULL
+          ORDER BY "createdAt" DESC, id DESC
+          LIMIT 1
+        ) a ON TRUE
+        WHERE u."deletedAt" IS NULL
+          AND u.age >= ${minAge}
+          AND u.age <= ${maxAge}
+          AND u.description IS NOT NULL
+          AND BTRIM(u.description) <> ''
+        ORDER BY u."createdAt" DESC, u.id DESC
+        LIMIT ${limit} OFFSET ${offset}
+      `),
+      this.prisma.$queryRaw<{ count: bigint }[]>(Prisma.sql`
+        SELECT COUNT(*)::bigint AS count
+        FROM "User" u
+        INNER JOIN (
+          SELECT "userId"
+          FROM "Avatar"
+          WHERE "deletedAt" IS NULL
+          GROUP BY "userId"
+          HAVING COUNT(*) > 2
+        ) active_avatar_users ON active_avatar_users."userId" = u.id
+        WHERE u."deletedAt" IS NULL
+          AND u.age >= ${minAge}
+          AND u.age <= ${maxAge}
+          AND u.description IS NOT NULL
+          AND BTRIM(u.description) <> ''
+      `),
+    ]);
+    return {
+      rows,
+      total: Number(countRows[0]?.count ?? 0),
+      page,
+      limit,
+    };
+  }
+
   updateById(id: string, dto: UpdateUserDto) {
     return this.prisma.user.update({ where: { id }, data: dto });
   }
@@ -55,5 +155,46 @@ export class UsersRepository {
       where: { id },
       data: { deletedAt: new Date() },
     });
+  }
+
+  async transfer(
+    fromId: string,
+    toId: string,
+    amount: Prisma.Decimal,
+    tx: Prisma.TransactionClient,
+  ): Promise<TransferResult> {
+    const locked = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+      SELECT id FROM "User"
+      WHERE id IN (${Prisma.join([fromId, toId])}) AND "deletedAt" IS NULL
+      ORDER BY id
+      FOR UPDATE
+    `);
+    if (locked.length !== 2) {
+      return { status: 'user_not_found' };
+    }
+
+    const debit = await tx.user.updateMany({
+      where: {
+        id: fromId,
+        deletedAt: null,
+        balance: { gte: amount },
+      },
+      data: { balance: { decrement: amount } },
+    });
+
+    if (debit.count === 0) {
+      return { status: 'insufficient_funds' };
+    }
+
+    const toUser = await tx.user.update({
+      where: { id: toId },
+      data: { balance: { increment: amount } },
+    });
+
+    const fromUser = await tx.user.findFirstOrThrow({
+      where: { id: fromId },
+    });
+
+    return { status: 'ok', fromUser, toUser };
   }
 }
