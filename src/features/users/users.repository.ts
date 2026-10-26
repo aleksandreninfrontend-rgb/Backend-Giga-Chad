@@ -1,9 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Prisma, Role, User } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { GetUsersQueryDto } from './dto/get-users-query.dto.js';
 import { UpdateUserDto } from './dto/update-user-dto.js';
-import { InsufficientFundsException } from './exceptions/insufficient-funds.exception.js';
+
+export type TransferResult =
+  | { status: 'ok'; fromUser: User; toUser: User }
+  | { status: 'user_not_found' }
+  | { status: 'insufficient_funds' };
 
 export type ActiveUserWithLatestAvatarRow = {
   id: string;
@@ -158,7 +162,7 @@ export class UsersRepository {
     toId: string,
     amount: Prisma.Decimal,
     tx: Prisma.TransactionClient,
-  ): Promise<{ fromUser: User; toUser: User }> {
+  ): Promise<TransferResult> {
     const locked = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
       SELECT id FROM "User"
       WHERE id IN (${Prisma.join([fromId, toId])}) AND "deletedAt" IS NULL
@@ -166,7 +170,7 @@ export class UsersRepository {
       FOR UPDATE
     `);
     if (locked.length !== 2) {
-      throw new NotFoundException('User not found');
+      return { status: 'user_not_found' };
     }
 
     const debit = await tx.user.updateMany({
@@ -179,7 +183,7 @@ export class UsersRepository {
     });
 
     if (debit.count === 0) {
-      throw new InsufficientFundsException();
+      return { status: 'insufficient_funds' };
     }
 
     const toUser = await tx.user.update({
@@ -191,6 +195,6 @@ export class UsersRepository {
       where: { id: fromId },
     });
 
-    return { fromUser, toUser };
+    return { status: 'ok', fromUser, toUser };
   }
 }

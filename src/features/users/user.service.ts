@@ -21,6 +21,7 @@ import { GetActiveUsersQueryDto } from './dto/get-active-users-query.dto.js';
 import { RedisService } from '../../providers/cache/redis.service.js';
 import { TransferDto } from './dto/transfer.dto.js';
 import { ConfigService } from '@nestjs/config';
+import { InsufficientFundsException } from './exceptions/insufficient-funds.exception.js';
 
 const USERS_ALL_VERSION_KEY = 'users:all:version';
 
@@ -225,9 +226,23 @@ export class UserService {
       throw new BadRequestException('Amount must be greater than 0');
     }
 
-    const { fromUser } = await this.prisma.$transaction((tx) =>
-      this.userRepository.transfer(fromId, dto.recipientId, amount, tx),
-    );
+    const fromUser = await this.prisma.$transaction(async (tx) => {
+      const result = await this.userRepository.transfer(
+        fromId,
+        dto.recipientId,
+        amount,
+        tx,
+      );
+
+      if (result.status === 'user_not_found') {
+        throw new NotFoundException('User not found');
+      }
+      if (result.status === 'insufficient_funds') {
+        throw new InsufficientFundsException();
+      }
+
+      return result.fromUser;
+    });
 
     await this.invalidateMeCache(fromId);
     await this.invalidateMeCache(dto.recipientId);
