@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
-  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -87,14 +86,14 @@ export class AvatarService {
   }
 
   async softDelete(userId: string, avatarId: string): Promise<void> {
-    const avatar = await this.avatarRepository.findById(avatarId);
+    const avatar = await this.avatarRepository.findByIdAndUserId(
+      avatarId,
+      userId,
+    );
     if (!avatar) {
       throw new NotFoundException('Avatar not found');
     }
-    if (avatar.userId !== userId) {
-      throw new ForbiddenException();
-    }
-    await this.avatarRepository.softDeleteById(avatarId);
+    await this.avatarRepository.softDeleteById(avatar.id);
     this.logger.log({
       msg: 'Avatar soft-deleted',
       userId,

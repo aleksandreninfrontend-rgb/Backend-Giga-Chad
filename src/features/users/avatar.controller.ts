@@ -17,7 +17,6 @@ import {
   ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
-  ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOperation,
@@ -82,7 +81,6 @@ export class AvatarController {
   @ApiNoContentResponse()
   @ApiUnauthorizedResponse()
   @ApiNotFoundResponse()
-  @ApiForbiddenResponse()
   softDelete(
     @CurrentUser() user: JwtPayload,
     @Param('id') id: string,

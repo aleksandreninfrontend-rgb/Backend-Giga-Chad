@@ -25,6 +25,12 @@ export class AvatarRepository {
     return this.prisma.avatar.findFirst({ where: { id, deletedAt: null } });
   }
 
+  findByIdAndUserId(id: string, userId: string) {
+    return this.prisma.avatar.findFirst({
+      where: { id, userId, deletedAt: null },
+    });
+  }
+
   softDeleteById(id: string) {
     return this.prisma.avatar.update({
       where: { id },
