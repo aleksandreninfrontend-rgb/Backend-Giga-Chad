@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { ConfigService } from '@nestjs/config';
 
@@ -76,9 +81,9 @@ export class RedisService implements OnModuleDestroy {
       this.logger.warn({
         msg: 'Redis acquireLock failed',
         key,
-        error: String(err),
+        error: err instanceof Error ? err.message : String(err),
       });
-      return false;
+      throw new ServiceUnavailableException('Cache service unavailable');
     }
   }
 
