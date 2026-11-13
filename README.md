@@ -26,7 +26,7 @@ cp .env.example .env
 | `REDIS_URL` | Redis for cache + avatar upload lock (`redis://localhost:6379`) |
 | `CACHE_TTL_SECONDS` | User list / me cache TTL |
 | `AVATAR_CLEANUP_CRON` | Cron for soft-deleted avatar cleanup job |
-| `AVATAR_CLEANUP_RETENTION_MS` | How long soft-deleted avatars are kept before hard delete |
+| `AVATAR_CLEANUP_RETENTION_MS` | Soft-deleted avatars older than this are hard-deleted (default `604800000` = 7 days) |
 | `S3_ENDPOINT` | RustFS S3 API (`http://127.0.0.1:19000`) |
 | `S3_REGION` | AWS SDK region (e.g. `us-east-1`) |
 | `S3_ACCESS_KEY_ID` / `S3_SECRET_ACCESS_KEY` | Must match RustFS (`minioadmin` / `minioadmin`) |
