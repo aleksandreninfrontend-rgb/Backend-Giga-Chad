@@ -2,11 +2,13 @@ import type { Server, Socket } from 'socket.io';
 
 export type SocketData = {
   connectedAt: string;
+  userId: string;
 };
 
 export type ServerToClientEvents = {
   welcome: (payload: WelcomePayload) => void;
   pong: (payload: { ts: number }) => void;
+  notification: (payload: TransferNotification) => void;
 };
 
 export type ClientToServerEvents = {
@@ -34,3 +36,11 @@ export type AppServer = Server<
   Record<string, never>,
   SocketData
 >;
+
+export type TransferNotification = {
+  eventId: string;
+  fromUserId: string;
+  toUserId: string;
+  amount: string;
+  occurredAt: string;
+};
