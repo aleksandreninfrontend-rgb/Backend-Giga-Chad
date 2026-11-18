@@ -4,6 +4,7 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { ClsServiceManager } from 'nestjs-cls';
 import type { Request, Response } from 'express';
@@ -11,7 +12,18 @@ import type { ErrorResponse } from './error-response.js';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionsFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost): void {
+    if (host.getType() !== 'http') {
+      this.logger.error({
+        msg: 'Unhandled non-HTTP exception',
+        contextType: host.getType(),
+        error: exception instanceof Error ? exception.message : exception,
+      });
+      return;
+    }
+
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();

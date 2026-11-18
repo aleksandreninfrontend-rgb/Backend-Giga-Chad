@@ -5,7 +5,6 @@ import {
   AccessTokenGuard,
   AllExceptionsFilter,
   CommonLoggerModule,
-  JwtAuthModule,
   RolesGuard,
 } from '@app/common';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -34,7 +33,6 @@ import { BullModule } from '@nestjs/bull';
     PrismaModule,
     UsersModule,
     AuthModule,
-    JwtAuthModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: AccessTokenGuard },

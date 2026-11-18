@@ -22,7 +22,7 @@ export class TransferEventsController {
     @Payload() payload: TransferCompletedEvent,
     @Ctx() ctx: unknown,
   ): Promise<void> {
-    const context = ctx as KafkaContext;
+    const kafkaCtx = ctx as KafkaContext;
 
     this.logger.log({
       msg: 'Transfer event received',
@@ -35,10 +35,10 @@ export class TransferEventsController {
     this.notificationGateway.sendNotification(payload.toUserId, payload);
     this.notificationGateway.sendNotification(payload.fromUserId, payload);
 
-    const { offset } = context.getMessage();
-    const partition = context.getPartition();
-    const topic = context.getTopic();
-    const consumer = context.getConsumer();
+    const { offset } = kafkaCtx.getMessage();
+    const partition = kafkaCtx.getPartition();
+    const topic = kafkaCtx.getTopic();
+    const consumer = kafkaCtx.getConsumer();
 
     await consumer.commitOffsets([
       {

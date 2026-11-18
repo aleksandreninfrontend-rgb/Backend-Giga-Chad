@@ -148,12 +148,6 @@ export class NotificationGateway
       return fromAuth;
     }
 
-    // Postman fallback (no handshake.auth support) — remove after testing
-    const headerToken = client.handshake.headers?.token;
-    if (typeof headerToken === 'string' && headerToken.length > 0) {
-      return headerToken;
-    }
-
     const authorization = client.handshake.headers?.authorization;
     if (typeof authorization === 'string') {
       const [type, token] = authorization.split(' ');

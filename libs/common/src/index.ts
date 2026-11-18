@@ -4,8 +4,7 @@ export { Role } from './auth/role.enum.js';
 export type { JwtPayload } from './auth/jwt-payload.js';
 export {
   ACCESS_JWT,
-  ACCESS_TOKEN_TTL_SECONDS,
-  ACCESS_TOKEN_EXPIRATION_TIME,
+  DEFAULT_ACCESS_TOKEN_TTL_SECONDS,
 } from './auth/constants.js';
 export { JwtAuthModule } from './auth/jwt-auth.module.js';
 export { AccessTokenGuard } from './auth/guards/access-token.guard.js';

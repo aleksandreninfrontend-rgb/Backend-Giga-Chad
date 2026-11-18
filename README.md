@@ -28,6 +28,7 @@ cp .env.example .env
 | `DATABASE_URL`                            | Postgres (user-service)                            |
 | `JWT_ACCESS_SECRET`                       | Access JWT sign + verify (must match in both apps) |
 | `JWT_REFRESH_SECRET`                      | Refresh JWT (user-service)                         |
+| `ACCESS_TOKEN_TTL_SECONDS`                | Access JWT lifetime in seconds (default `900`)     |
 | `PORT` / `NOTIFICATION_PORT`              | `3000` / `3001`                                    |
 | `REDIS_URL`                               | Cache + locks                                      |
 | `KAFKA_BROKERS`                           | Nest consumer brokers (`localhost:9092` on host)   |

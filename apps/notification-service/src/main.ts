@@ -20,7 +20,7 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const brokers = configService
-    .get<string>('KAFKA_BROKERS', 'localhost:9092')
+    .getOrThrow<string>('KAFKA_BROKERS')
     .split(',')
     .map((b) => b.trim());
 

@@ -1,7 +1,6 @@
-
 CREATE TABLE "cron_runs" (
     "job" TEXT NOT NULL,
-    "started_at" TIMESTAMP(3) NOT NULL,
+    "started_at" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "cron_runs_pkey" PRIMARY KEY ("job")
 );
