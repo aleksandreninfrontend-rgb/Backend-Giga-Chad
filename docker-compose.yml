@@ -3,6 +3,7 @@ services:
   # RustFS is a common drop-in S3-compatible alternative (ports + MinIO-style creds).
   rustfs:
     image: rustfs/rustfs:latest
+    networks: [app_network]
     ports:
       - '19000:9000'
       - '19001:9001'
@@ -21,6 +22,7 @@ services:
   # Create S3_BUCKET=main after RustFS is healthy (RustFS does not auto-create buckets).
   s3-init:
     image: amazon/aws-cli:2.17.56
+    networks: [app_network]
     depends_on:
       rustfs:
         condition: service_healthy
@@ -44,6 +46,8 @@ services:
     image: postgres:16
     container_name: backend-giga-chad-postgres
     restart: unless-stopped
+    command: ['postgres', '-c', 'wal_level=logical']
+    networks: [app_network]
     ports:
       - '5432:5432'
     environment:
@@ -61,8 +65,86 @@ services:
 
   redis:
     image: redis:7
+    networks: [app_network]
     ports:
       - '6379:6379'
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka
+    hostname: kafka
+    networks: [app_network]
+    ports:
+      - '9092:9092'
+      - '29092:29092'
+    environment:
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENERS: EXTERNAL://0.0.0.0:9092,INTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093
+      KAFKA_ADVERTISED_LISTENERS: EXTERNAL://localhost:9092,INTERNAL://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      CLUSTER_ID: 'q1Sh-9_ISia_zwGINzRvyQ'
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on: [kafka]
+    networks: [app_network]
+    ports: ['8080:8080']
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+
+  connect:
+    image: debezium/connect:2.5
+    container_name: connect
+    depends_on: [kafka, postgres]
+    networks: [app_network]
+    ports: ['8083:8083']
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      STATUS_STORAGE_TOPIC: connect_statuses
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      KEY_CONVERTER_SCHEMAS_ENABLE: 'false'
+      VALUE_CONVERTER_SCHEMAS_ENABLE: 'false'
+
+  # Registers outbox connector; DB credentials come from env (see .env.example).
+  connect-init:
+    image: alpine:3.20
+    networks: [app_network]
+    depends_on: [connect, postgres]
+    environment:
+      CONNECT_URL: http://connect:8083
+      DEBEZIUM_DB_HOSTNAME: ${DEBEZIUM_DB_HOSTNAME:-postgres}
+      DEBEZIUM_DB_PORT: ${DEBEZIUM_DB_PORT:-5432}
+      DEBEZIUM_DB_USER: ${DEBEZIUM_DB_USER:-backend_giga_chad}
+      DEBEZIUM_DB_PASSWORD: ${DEBEZIUM_DB_PASSWORD:-backend_giga_chad}
+      DEBEZIUM_DB_NAME: ${DEBEZIUM_DB_NAME:-backend_giga_chad}
+      DEBEZIUM_TOPIC_PREFIX: ${DEBEZIUM_TOPIC_PREFIX:-backendgigachad}
+    volumes:
+      - ./infra/debezium/outbox-connector.template.json:/outbox-connector.template.json:ro
+      - ./infra/debezium/register-outbox-connector.sh:/register.sh:ro
+    entrypoint:
+      [
+        '/bin/sh',
+        '-c',
+        'apk add --no-cache curl gettext >/dev/null && exec /bin/sh /register.sh',
+      ]
+    restart: 'no'
+
+networks:
+  app_network: {}
 
 volumes:
   rustfs_storage:

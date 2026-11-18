@@ -14,6 +14,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { RedisModule } from './providers/cache/redis.module.js';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AvatarCleanupModule } from './features/avatar-cleanup/avatar-cleanup.module.js';
+import { OutboxCleanupModule } from './features/outbox-cleanup/outbox-cleanup.module.js';
 import { BullModule } from '@nestjs/bull';
 
 @Module({
@@ -28,6 +29,7 @@ import { BullModule } from '@nestjs/bull';
     }),
     ScheduleModule.forRoot(),
     AvatarCleanupModule,
+    OutboxCleanupModule,
     RedisModule,
     PrismaModule,
     UsersModule,

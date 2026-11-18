@@ -1,4 +1,7 @@
 import type { Server, Socket } from 'socket.io';
+import type { TransferCompletedEvent } from '@app/common';
+
+export type TransferNotification = TransferCompletedEvent;
 
 export type SocketData = {
   connectedAt: string;
@@ -36,11 +39,3 @@ export type AppServer = Server<
   Record<string, never>,
   SocketData
 >;
-
-export type TransferNotification = {
-  eventId: string;
-  fromUserId: string;
-  toUserId: string;
-  amount: string;
-  occurredAt: string;
-};

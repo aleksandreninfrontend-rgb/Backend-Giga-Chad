@@ -6,8 +6,14 @@ import {
   NotFoundException,
   Logger,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'node:crypto';
 import { Prisma, type User } from '@prisma/client';
+import {
+  TRANSFER_COMPLETED_EVENT,
+  type TransferCompletedEvent,
+} from '@app/common';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
 import { UsersRepository } from './users.repository.js';
@@ -20,7 +26,6 @@ import { PaginatedActiveUsersResponseDto } from './dto/active-users-response.dto
 import { GetActiveUsersQueryDto } from './dto/get-active-users-query.dto.js';
 import { RedisService } from '../../providers/cache/redis.service.js';
 import { TransferDto } from './dto/transfer.dto.js';
-import { ConfigService } from '@nestjs/config';
 import { InsufficientFundsException } from './exceptions/insufficient-funds.exception.js';
 
 const USERS_ALL_VERSION_KEY = 'users:all:version';
@@ -240,46 +245,69 @@ export class UserService {
       throw new BadRequestException('Amount must be greater than 0');
     }
 
-    const fromUser = await this.prisma.$transaction(async (tx) => {
-      const result = await this.userRepository.transfer(
-        fromId,
-        dto.recipientId,
-        amount,
-        tx,
-      );
+    const eventId = randomUUID();
+    const transferEvent: TransferCompletedEvent = {
+      eventId,
+      fromUserId: fromId,
+      toUserId: dto.recipientId,
+      amount: amount.toString(),
+      occurredAt: new Date().toISOString(),
+    };
 
-      if (result.status === 'user_not_found') {
-        this.logger.warn({
-          msg: 'Transfer failed',
-          reason: 'user_not_found',
+    const fromUser = await this.prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        const result = await this.userRepository.transfer(
           fromId,
-          recipientId: dto.recipientId,
-          amount: amount.toString(),
-        });
-        throw new NotFoundException('User not found');
-      }
-      if (result.status === 'insufficient_funds') {
-        this.logger.warn({
-          msg: 'Transfer failed',
-          reason: 'insufficient_funds',
-          fromId,
-          recipientId: dto.recipientId,
-          amount: amount.toString(),
-        });
-        throw new InsufficientFundsException();
-      }
+          dto.recipientId,
+          amount,
+          tx,
+        );
 
-      return result.fromUser;
-    });
+        if (result.status === 'user_not_found') {
+          this.logger.warn({
+            msg: 'Transfer failed',
+            reason: 'user_not_found',
+            fromId,
+            recipientId: dto.recipientId,
+            amount: amount.toString(),
+          });
+          throw new NotFoundException('User not found');
+        }
+        if (result.status === 'insufficient_funds') {
+          this.logger.warn({
+            msg: 'Transfer failed',
+            reason: 'insufficient_funds',
+            fromId,
+            recipientId: dto.recipientId,
+            amount: amount.toString(),
+          });
+          throw new InsufficientFundsException();
+        }
+
+        await tx.outbox.create({
+          data: {
+            id: eventId,
+            aggregateType: 'transfer',
+            aggregateId: `${fromId}:${dto.recipientId}`,
+            type: TRANSFER_COMPLETED_EVENT,
+            payload: transferEvent,
+          },
+        });
+
+        return result.fromUser;
+      },
+    );
 
     await this.invalidateMeCache(fromId);
     await this.invalidateMeCache(dto.recipientId);
     await this.redis.incr(USERS_ALL_VERSION_KEY);
+
     this.logger.log({
       msg: 'Transfer completed',
       fromId,
       recipientId: dto.recipientId,
       amount: amount.toString(),
+      eventId,
     });
 
     return this.toResponse(fromUser);

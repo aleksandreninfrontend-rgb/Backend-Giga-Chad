@@ -16,3 +16,6 @@ export { CurrentUser } from './auth/decorators/current-user.decorator.js';
 
 export type { ErrorResponse } from './filters/error-response.js';
 export { AllExceptionsFilter } from './filters/all-exceptions.filter.js';
+
+export { KAFKA_CLIENT, TRANSFER_COMPLETED_EVENT } from './kafka/constants.js';
+export type { TransferCompletedEvent } from './kafka/transfer-completed.event.js';
