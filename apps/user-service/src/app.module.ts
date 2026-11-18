@@ -4,7 +4,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import {
   AccessTokenGuard,
   AllExceptionsFilter,
+  cleanupConfig,
   CommonLoggerModule,
+  jwtConfig,
   RolesGuard,
 } from '@app/common';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -15,10 +17,15 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AvatarCleanupModule } from './features/avatar-cleanup/avatar-cleanup.module.js';
 import { OutboxCleanupModule } from './features/outbox-cleanup/outbox-cleanup.module.js';
 import { BullModule } from '@nestjs/bull';
+import { validateUserServiceEnv } from './config/env.validation.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [jwtConfig, cleanupConfig],
+      validate: validateUserServiceEnv,
+    }),
     CommonLoggerModule,
     BullModule.forRootAsync({
       inject: [ConfigService],

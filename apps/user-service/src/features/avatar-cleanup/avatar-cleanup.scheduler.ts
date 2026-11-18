@@ -7,11 +7,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
+import type { CleanupConfig } from '@app/common';
 import { AvatarCleanupService } from './avatar-cleanup.service.js';
-import {
-  AVATAR_CLEANUP_CRON_DEFAULT,
-  AVATAR_CLEANUP_CRON_NAME,
-} from './avatar-cleanup.constants.js';
+import { AVATAR_CLEANUP_CRON_NAME } from './avatar-cleanup.constants.js';
 
 @Injectable()
 export class AvatarCleanupScheduler implements OnModuleInit, OnModuleDestroy {
@@ -24,9 +22,8 @@ export class AvatarCleanupScheduler implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    const expression =
-      this.config.get<string>('AVATAR_CLEANUP_CRON') ??
-      AVATAR_CLEANUP_CRON_DEFAULT;
+    const { avatarCron: expression } =
+      this.config.getOrThrow<CleanupConfig>('cleanup');
 
     const job = CronJob.from({
       cronTime: expression,

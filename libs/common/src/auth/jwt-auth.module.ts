@@ -3,7 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { AccessTokenGuard } from './guards/access-token.guard.js';
 import { RolesGuard } from './guards/roles.guard.js';
-import { ACCESS_JWT, DEFAULT_ACCESS_TOKEN_TTL_SECONDS } from './constants.js';
+import { ACCESS_JWT } from './constants.js';
+import type { JwtConfig } from '../config/jwt.config.js';
 
 @Module({
   providers: [
@@ -11,16 +12,11 @@ import { ACCESS_JWT, DEFAULT_ACCESS_TOKEN_TTL_SECONDS } from './constants.js';
       provide: ACCESS_JWT,
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const ttlSeconds = Number(
-          configService.get(
-            'ACCESS_TOKEN_TTL_SECONDS',
-            String(DEFAULT_ACCESS_TOKEN_TTL_SECONDS),
-          ),
-        );
+        const jwt = configService.getOrThrow<JwtConfig>('jwt');
 
         return new JwtService({
-          secret: configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
-          signOptions: { expiresIn: `${ttlSeconds}s` },
+          secret: jwt.accessSecret,
+          signOptions: { expiresIn: `${jwt.accessTokenTtlSeconds}s` },
         });
       },
     },

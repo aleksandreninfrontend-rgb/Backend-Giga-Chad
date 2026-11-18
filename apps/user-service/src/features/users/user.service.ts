@@ -12,8 +12,10 @@ import { randomUUID } from 'node:crypto';
 import { Prisma, type User } from '@prisma/client';
 import {
   TRANSFER_COMPLETED_EVENT,
+  resolveRequestId,
   type TransferCompletedEvent,
 } from '@app/common';
+import { ClsService } from 'nestjs-cls';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UserResponseDto } from './dto/user-response.dto.js';
 import { UsersRepository } from './users.repository.js';
@@ -27,6 +29,7 @@ import { GetActiveUsersQueryDto } from './dto/get-active-users-query.dto.js';
 import { RedisService } from '../../providers/cache/redis.service.js';
 import { TransferDto } from './dto/transfer.dto.js';
 import { InsufficientFundsException } from './exceptions/insufficient-funds.exception.js';
+import { OutboxRepository } from '../outbox-cleanup/outbox.repository.js';
 
 const USERS_ALL_VERSION_KEY = 'users:all:version';
 
@@ -39,7 +42,9 @@ export class UserService {
     private readonly sessionsService: SessionsService,
     private readonly prisma: PrismaService,
     private readonly redis: RedisService,
-    private readonly config: ConfigService,
+    config: ConfigService,
+    private readonly outboxRepository: OutboxRepository,
+    private readonly cls: ClsService,
   ) {
     this.cacheTtlSeconds = Number(config.get('CACHE_TTL_SECONDS', '30'));
   }
@@ -246,8 +251,10 @@ export class UserService {
     }
 
     const eventId = randomUUID();
+    const requestId = resolveRequestId(this.cls.getId());
     const transferEvent: TransferCompletedEvent = {
       eventId,
+      requestId,
       fromUserId: fromId,
       toUserId: dto.recipientId,
       amount: amount.toString(),
@@ -284,15 +291,16 @@ export class UserService {
           throw new InsufficientFundsException();
         }
 
-        await tx.outbox.create({
-          data: {
+        await this.outboxRepository.create(
+          {
             id: eventId,
             aggregateType: 'transfer',
             aggregateId: `${fromId}:${dto.recipientId}`,
             type: TRANSFER_COMPLETED_EVENT,
             payload: transferEvent,
           },
-        });
+          tx,
+        );
 
         return result.fromUser;
       },
@@ -308,6 +316,7 @@ export class UserService {
       recipientId: dto.recipientId,
       amount: amount.toString(),
       eventId,
+      requestId,
     });
 
     return this.toResponse(fromUser);

@@ -28,7 +28,6 @@
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f postgres",
     "debezium:register": "docker compose up connect-init",
-
     "prepare": "husky"
   },
   "lint-staged": {
@@ -63,7 +62,8 @@
     "pino-http": "^11.0.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "socket.io": "^4.8.4"
+    "socket.io": "^4.8.4",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",

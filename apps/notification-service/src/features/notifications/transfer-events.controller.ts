@@ -7,17 +7,27 @@ import {
 } from '@nestjs/microservices';
 import {
   TRANSFER_COMPLETED_EVENT,
+  resolveRequestId,
   type TransferCompletedEvent,
 } from '@app/common';
-import { NotificationGateway } from './notification.gateway.js';
+import { UseCls } from 'nestjs-cls';
+import { TransferNotificationService } from './transfer-notification.service.js';
 
 @Controller()
 export class TransferEventsController {
   private readonly logger = new Logger(TransferEventsController.name);
 
-  constructor(private readonly notificationGateway: NotificationGateway) {}
+  constructor(
+    private readonly transferNotificationService: TransferNotificationService,
+  ) {}
 
   @EventPattern(TRANSFER_COMPLETED_EVENT)
+  @UseCls<[TransferCompletedEvent, unknown]>({
+    generateId: true,
+    idGenerator: function (payload) {
+      return resolveRequestId(payload.requestId, payload.eventId);
+    },
+  })
   async handleTransferCompleted(
     @Payload() payload: TransferCompletedEvent,
     @Ctx() ctx: unknown,
@@ -27,13 +37,13 @@ export class TransferEventsController {
     this.logger.log({
       msg: 'Transfer event received',
       eventId: payload.eventId,
+      requestId: payload.requestId,
       fromUserId: payload.fromUserId,
       toUserId: payload.toUserId,
       amount: payload.amount,
     });
 
-    this.notificationGateway.sendNotification(payload.toUserId, payload);
-    this.notificationGateway.sendNotification(payload.fromUserId, payload);
+    this.transferNotificationService.notifyTransferCompleted(payload);
 
     const { offset } = kafkaCtx.getMessage();
     const partition = kafkaCtx.getPartition();
@@ -51,6 +61,7 @@ export class TransferEventsController {
     this.logger.log({
       msg: 'Transfer event offset committed',
       eventId: payload.eventId,
+      requestId: payload.requestId,
       topic,
       partition,
       offset,

@@ -1,6 +1,7 @@
 import { Process, Processor } from '@nestjs/bull';
 import { Inject, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import type { CleanupConfig } from '@app/common';
 import { IFileService } from '../../providers/files/files.adapter.js';
 import { AvatarRepository } from '../users/avatar.repository.js';
 import {
@@ -19,10 +20,9 @@ export class AvatarCleanupProcessor {
 
   @Process(AVATAR_CLEANUP_JOB)
   async handleCleanup() {
-    const retentionMs = Number(
-      this.config.get('AVATAR_CLEANUP_RETENTION_MS', '604800000'),
-    );
-    const cutoff = new Date(Date.now() - retentionMs);
+    const { avatarRetentionMs } =
+      this.config.getOrThrow<CleanupConfig>('cleanup');
+    const cutoff = new Date(Date.now() - avatarRetentionMs);
 
     const expiredAvatars =
       await this.avatarRepository.findExpiredSoftDeleted(cutoff);

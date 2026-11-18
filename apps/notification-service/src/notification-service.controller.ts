@@ -1,12 +1,16 @@
 import { Body, Controller, Post } from '@nestjs/common';
-import { CurrentUser, type JwtPayload } from '@app/common';
+import { CurrentUser, resolveRequestId, type JwtPayload } from '@app/common';
+import { ClsService } from 'nestjs-cls';
 import { NotificationGateway } from './features/notifications/notification.gateway.js';
 import { TestNotificationDto } from './features/notifications/dto/test-notification.dto.js';
 import type { TransferNotification } from './features/notifications/types/socket.types.js';
 
 @Controller()
 export class NotificationServiceController {
-  constructor(private readonly notificationGateway: NotificationGateway) {}
+  constructor(
+    private readonly notificationGateway: NotificationGateway,
+    private readonly cls: ClsService,
+  ) {}
 
   @Post('notifications/test')
   testNotification(
@@ -15,6 +19,7 @@ export class NotificationServiceController {
   ): { ok: true; userId: string } {
     const payload: TransferNotification = {
       eventId: body.eventId,
+      requestId: resolveRequestId(body.requestId, this.cls.getId()),
       fromUserId: body.fromUserId,
       toUserId: body.toUserId,
       amount: body.amount,

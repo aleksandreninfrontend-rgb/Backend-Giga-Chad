@@ -1,9 +1,14 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class TestNotificationDto {
   @IsString()
   @IsNotEmpty()
   eventId: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  requestId?: string;
 
   @IsString()
   @IsNotEmpty()

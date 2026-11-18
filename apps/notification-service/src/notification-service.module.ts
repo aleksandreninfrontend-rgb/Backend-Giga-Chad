@@ -6,13 +6,20 @@ import {
   AllExceptionsFilter,
   CommonLoggerModule,
   JwtAuthModule,
+  jwtConfig,
+  kafkaConfig,
 } from '@app/common';
 import { NotificationServiceController } from './notification-service.controller.js';
 import { NotificationModule } from './features/notifications/notification.module.js';
+import { validateNotificationServiceEnv } from './config/env.validation.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [jwtConfig, kafkaConfig],
+      validate: validateNotificationServiceEnv,
+    }),
     CommonLoggerModule,
     JwtAuthModule,
     NotificationModule,

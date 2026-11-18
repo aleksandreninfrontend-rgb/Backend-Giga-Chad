@@ -61,6 +61,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
       requestId = undefined;
     }
 
+    if (!(exception instanceof HttpException)) {
+      this.logger.error({
+        msg: 'Unhandled HTTP exception',
+        requestId,
+        path: request.url,
+        method: request.method,
+        error:
+          exception instanceof Error ? exception.message : String(exception),
+        stack: exception instanceof Error ? exception.stack : undefined,
+      });
+    }
+
     const body: ErrorResponse = {
       statusCode,
       message,

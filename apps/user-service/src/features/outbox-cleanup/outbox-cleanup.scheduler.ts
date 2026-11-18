@@ -7,11 +7,9 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { CronJob } from 'cron';
+import type { CleanupConfig } from '@app/common';
 import { OutboxCleanupService } from './outbox-cleanup.service.js';
-import {
-  OUTBOX_CLEANUP_CRON_DEFAULT,
-  OUTBOX_CLEANUP_CRON_NAME,
-} from './outbox-cleanup.constants.js';
+import { OUTBOX_CLEANUP_CRON_NAME } from './outbox-cleanup.constants.js';
 
 @Injectable()
 export class OutboxCleanupScheduler implements OnModuleInit, OnModuleDestroy {
@@ -24,15 +22,19 @@ export class OutboxCleanupScheduler implements OnModuleInit, OnModuleDestroy {
   ) {}
 
   onModuleInit() {
-    const expression =
-      this.config.get<string>('OUTBOX_CLEANUP_CRON') ??
-      OUTBOX_CLEANUP_CRON_DEFAULT;
+    const { outboxCron: expression } =
+      this.config.getOrThrow<CleanupConfig>('cleanup');
 
     const job = CronJob.from({
       cronTime: expression,
       onTick: () => {
         this.logger.log({ msg: 'Outbox cleanup cron fired' });
-        void this.outboxCleanupService.cleanup();
+        void this.outboxCleanupService.cleanup().catch((err: unknown) => {
+          this.logger.error({
+            msg: 'Outbox cleanup failed',
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
       },
       start: true,
     });

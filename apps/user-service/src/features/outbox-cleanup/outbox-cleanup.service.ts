@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PrismaService } from '../../prisma/prisma.service.js';
+import type { CleanupConfig } from '@app/common';
 import {
   OUTBOX_CLEANUP_BATCH_SIZE,
   OUTBOX_CLEANUP_JOB,
-  OUTBOX_CLEANUP_RETENTION_MS_DEFAULT,
 } from './outbox-cleanup.constants.js';
+import { OutboxRepository } from './outbox.repository.js';
 
 @Injectable()
 export class OutboxCleanupService {
@@ -13,23 +13,16 @@ export class OutboxCleanupService {
   private readonly retentionMs: number;
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly outboxRepository: OutboxRepository,
     config: ConfigService,
   ) {
-    this.retentionMs = Number(
-      config.get(
-        'OUTBOX_CLEANUP_RETENTION_MS',
-        String(OUTBOX_CLEANUP_RETENTION_MS_DEFAULT),
-      ),
-    );
+    this.retentionMs =
+      config.getOrThrow<CleanupConfig>('cleanup').outboxRetentionMs;
   }
 
-  /**
-   * Claim today's run via cron_runs, then delete old outbox rows in batches.
-   * Other replicas get no RETURNING row and skip — avoids N concurrent big DELETEs.
-   */
   async cleanup(): Promise<void> {
-    const claimed = await this.tryClaimJob(OUTBOX_CLEANUP_JOB);
+    const claimed =
+      await this.outboxRepository.tryClaimCronJob(OUTBOX_CLEANUP_JOB);
     if (!claimed) {
       this.logger.log({
         msg: 'Outbox cleanup skipped — another replica already claimed today',
@@ -42,15 +35,10 @@ export class OutboxCleanupService {
     let totalDeleted = 0;
 
     for (;;) {
-      const deleted = await this.prisma.$executeRaw`
-        DELETE FROM outbox
-        WHERE id IN (
-          SELECT id FROM outbox
-          WHERE created_at < ${cutoff}
-          ORDER BY created_at
-          LIMIT ${OUTBOX_CLEANUP_BATCH_SIZE}
-        )
-      `;
+      const deleted = await this.outboxRepository.deleteOlderThanBatch(
+        cutoff,
+        OUTBOX_CLEANUP_BATCH_SIZE,
+      );
 
       totalDeleted += deleted;
       if (deleted < OUTBOX_CLEANUP_BATCH_SIZE) {
@@ -65,19 +53,5 @@ export class OutboxCleanupService {
       cutoff: cutoff.toISOString(),
       retentionMs: this.retentionMs,
     });
-  }
-
-  /**
-   * Atomic claim: only one replica gets a RETURNING row per calendar day (DB TZ).
-   */
-  private async tryClaimJob(job: string): Promise<boolean> {
-    const rows = await this.prisma.$queryRaw<{ job: string }[]>`
-      UPDATE cron_runs
-      SET started_at = now()
-      WHERE job = ${job}
-        AND (started_at AT TIME ZONE 'UTC')::date < (now() AT TIME ZONE 'UTC')::date
-      RETURNING job
-    `;
-    return rows.length > 0;
   }
 }

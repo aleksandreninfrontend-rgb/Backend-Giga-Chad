@@ -1,16 +1,13 @@
 import { Inject, Logger } from '@nestjs/common';
 import {
-  ConnectedSocket,
-  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
-  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import type { WsResponse } from '@nestjs/websockets';
 import { JwtService } from '@nestjs/jwt';
-import { ACCESS_JWT, type JwtPayload } from '@app/common';
+import { ACCESS_JWT, resolveRequestId, type JwtPayload } from '@app/common';
+import { ClsService, UseCls } from 'nestjs-cls';
 import type {
   AppServer,
   AppSocket,
@@ -34,9 +31,17 @@ export class NotificationGateway
 
   constructor(
     @Inject(ACCESS_JWT) private readonly accessJwtService: JwtService,
+    private readonly cls: ClsService,
   ) {}
 
+  @UseCls<[AppSocket]>({
+    generateId: true,
+    idGenerator: function (client) {
+      return NotificationGateway.requestIdFromHandshake(client);
+    },
+  })
   async handleConnection(client: AppSocket): Promise<void> {
+    client.data.requestId = this.cls.getId();
     const token = this.extractToken(client);
 
     if (!token) {
@@ -91,30 +96,23 @@ export class NotificationGateway
       userId,
       room,
       eventId: payload.eventId,
+      requestId: payload.requestId,
     });
   }
 
-  handleDisconnect(client: AppSocket): void {
+  @UseCls<[AppSocket]>({
+    generateId: true,
+    idGenerator: function (client) {
+      return resolveRequestId(client.data?.requestId);
+    },
+  })
+  async handleDisconnect(client: AppSocket): Promise<void> {
     this.logger.log({
       msg: 'Socket disconnected',
       socketId: client.id,
       userId: client.data.userId,
       connectedAt: client.data.connectedAt,
     });
-  }
-
-  @SubscribeMessage('ping')
-  handlePing(
-    @ConnectedSocket() client: AppSocket,
-    @MessageBody() body: { ts: number },
-  ): WsResponse<{ ts: number }> {
-    this.logger.log({
-      msg: 'ping received',
-      socketId: client.id,
-      userId: client.data.userId,
-      ts: body.ts,
-    });
-    return { event: 'pong', data: { ts: body.ts } };
   }
 
   private getBufferedAmount(client: AppSocket): number {
@@ -125,11 +123,21 @@ export class NotificationGateway
   }
 
   private disconnectSlowClientsInRoom(room: string, userId: string): void {
-    for (const socket of this.server.sockets.sockets.values()) {
-      if (!socket.rooms.has(room)) continue;
+    const socketIds = this.server.sockets.adapter.rooms.get(room);
+    if (!socketIds) {
+      return;
+    }
+
+    for (const socketId of socketIds) {
+      const socket = this.server.sockets.sockets.get(socketId);
+      if (!socket) {
+        continue;
+      }
 
       const bufferedAmount = this.getBufferedAmount(socket as AppSocket);
-      if (bufferedAmount <= NotificationGateway.MAX_BUFFERED_BYTES) continue;
+      if (bufferedAmount <= NotificationGateway.MAX_BUFFERED_BYTES) {
+        continue;
+      }
 
       this.logger.warn({
         msg: 'Disconnecting slow client',
@@ -143,7 +151,7 @@ export class NotificationGateway
   }
 
   private extractToken(client: AppSocket): string | undefined {
-    const fromAuth = client.handshake.auth?.token;
+    const fromAuth: unknown = client.handshake.auth?.token;
     if (typeof fromAuth === 'string' && fromAuth.length > 0) {
       return fromAuth;
     }
@@ -157,5 +165,11 @@ export class NotificationGateway
     }
 
     return undefined;
+  }
+
+  private static requestIdFromHandshake(client: AppSocket): string {
+    const incoming = client.handshake.headers?.['x-request-id'];
+    const fromHeader = Array.isArray(incoming) ? incoming[0] : incoming;
+    return resolveRequestId(fromHeader);
   }
 }

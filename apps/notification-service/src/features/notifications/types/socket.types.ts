@@ -6,20 +6,15 @@ export type TransferNotification = TransferCompletedEvent;
 export type SocketData = {
   connectedAt: string;
   userId: string;
+  requestId: string;
 };
 
 export type ServerToClientEvents = {
   welcome: (payload: WelcomePayload) => void;
-  pong: (payload: { ts: number }) => void;
   notification: (payload: TransferNotification) => void;
 };
 
-export type ClientToServerEvents = {
-  ping: (
-    payload: { ts: number },
-    ack?: (res: { ok: true; ts: number }) => void,
-  ) => void;
-};
+export type ClientToServerEvents = Record<string, never>;
 
 export type WelcomePayload = {
   message: string;

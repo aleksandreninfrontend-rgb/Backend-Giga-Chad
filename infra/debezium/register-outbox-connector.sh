@@ -42,11 +42,15 @@ STATUS=$(curl -s -o /tmp/connect_resp.txt -w "%{http_code}" \
   --data @"${RENDERED}")
 
 echo "HTTP ${STATUS}"
-cat /tmp/connect_resp.txt
-echo
+echo "Connector '${NAME}'"
 
 if [ "$STATUS" != "201" ] && [ "$STATUS" != "200" ]; then
-  echo "Failed to register connector"
+  ERROR_MSG=$(sed -n 's/.*"message"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' /tmp/connect_resp.txt | head -n 1)
+  if [ -n "$ERROR_MSG" ]; then
+    echo "Failed to register connector: ${ERROR_MSG}"
+  else
+    echo "Failed to register connector (response redacted)"
+  fi
   exit 1
 fi
 

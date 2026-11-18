@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { Logger } from 'nestjs-pino';
+import type { KafkaConfig } from '@app/common';
 import { NotificationServiceModule } from './notification-service.module.js';
 
 async function bootstrap() {
@@ -19,26 +20,26 @@ async function bootstrap() {
   );
 
   const configService = app.get(ConfigService);
-  const brokers = configService
-    .getOrThrow<string>('KAFKA_BROKERS')
-    .split(',')
-    .map((b) => b.trim());
+  const { brokers } = configService.getOrThrow<KafkaConfig>('kafka');
 
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.KAFKA,
-    options: {
-      client: {
-        clientId: 'notification-service',
-        brokers,
-      },
-      consumer: {
-        groupId: 'notification-service',
-      },
-      run: {
-        autoCommit: false,
+  app.connectMicroservice<MicroserviceOptions>(
+    {
+      transport: Transport.KAFKA,
+      options: {
+        client: {
+          clientId: 'notification-service',
+          brokers,
+        },
+        consumer: {
+          groupId: 'notification-service',
+        },
+        run: {
+          autoCommit: false,
+        },
       },
     },
-  });
+    { inheritAppConfig: true },
+  );
 
   await app.startAllMicroservices();
 
