@@ -46,3 +46,22 @@ model Avatar {
   createdAt DateTime @default(now())
   deletedAt DateTime?
 }
+
+model Outbox {
+  id            String   @id @default(uuid()) @db.Uuid
+  aggregateType String   @map("aggregatetype")
+  aggregateId   String   @map("aggregateid")
+  type          String
+  payload       Json
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@map("outbox")
+  @@index([createdAt])
+}
+
+model CronRun {
+  job       String   @id
+  startedAt DateTime @map("started_at") @db.Timestamptz(3)
+
+  @@map("cron_runs")
+}

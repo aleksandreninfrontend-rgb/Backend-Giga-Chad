@@ -1,0 +1,3 @@
+export const ACCESS_JWT = 'ACCESS_JWT';
+
+export const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 900;
